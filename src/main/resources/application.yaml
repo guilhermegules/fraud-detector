@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: frauddetector
+server:
+  tomcat:
+    threads:
+      max: 20
+      min-spare: 5
