@@ -25,21 +25,21 @@ class FraudControllerTest {
   @Test
   void shouldApproveLowRiskTransaction() {
     when(fraudDetectionService.evaluate(any(TransactionVector.class)))
-        .thenReturn(new FraudScore(true, 0.2));
+        .thenReturn(new FraudScore(true, 0.2f));
 
     FraudScore score = fraudDetectionService.evaluate(new TransactionVector(new float[14]));
     assertTrue(score.approved());
-    assertEquals(0.2, score.score(), 0.001);
+    assertEquals(0.2f, score.score(), 0.001f);
   }
 
   @Test
   void shouldRejectHighRiskTransaction() {
     when(fraudDetectionService.evaluate(any(TransactionVector.class)))
-        .thenReturn(new FraudScore(false, 0.8));
+        .thenReturn(new FraudScore(false, 0.8f));
 
     FraudScore score = fraudDetectionService.evaluate(new TransactionVector(new float[14]));
     assertFalse(score.approved());
-    assertEquals(0.8, score.score(), 0.001);
+    assertEquals(0.8f, score.score(), 0.001f);
   }
 
   @Test
@@ -49,6 +49,6 @@ class FraudControllerTest {
 
     FraudScore score = fraudDetectionService.evaluate(new TransactionVector(new float[14]));
     assertTrue(score.approved());
-    assertEquals(0.0, score.score(), 0.001);
+    assertEquals(0.0f, score.score(), 0.001f);
   }
 }

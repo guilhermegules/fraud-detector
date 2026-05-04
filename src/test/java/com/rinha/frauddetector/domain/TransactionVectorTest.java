@@ -44,23 +44,23 @@ class TransactionVectorTest {
     TransactionVector v1 = new TransactionVector(f1);
     TransactionVector v2 = new TransactionVector(f2);
 
-    double distance = v1.distanceTo(v2);
-    assertEquals(14.0, distance, 0.001);
+    float distance = v1.distanceTo(v2);
+    assertEquals(14.0f, distance, 0.001f);
   }
 
   @Test
   void shouldCreateFromRequest() {
     FraudRequest request =
         createSampleRequest(
-            100.0, 1, 500.0, 2, 300.0, 10.0, false, true, "5912", "MERC-001", false);
+            100.0f, 1, 500.0f, 2, 300.0f, 10.0f, false, true, "5912", "MERC-001", false);
 
     TransactionVector vector =
         TransactionVector.fromRequest(
-            request, CONSTANTS, java.util.Map.of("5411", 0.15, "5912", 0.20));
+            request, CONSTANTS, java.util.Map.of("5411", 0.15F, "5912", 0.20F));
 
     assertNotNull(vector);
     assertEquals(14, vector.features().length);
-    assertTrue(vector.features()[0] >= 0.0 && vector.features()[0] <= 1.0);
+    assertTrue(vector.features()[0] >= 0.0f && vector.features()[0] <= 1.0f);
   }
 
   @Test
@@ -68,14 +68,14 @@ class TransactionVectorTest {
     FraudRequest request =
         new FraudRequest(
             "tx-1329056812",
-            new TransactionDTO(41.12, 2, "2026-03-11T18:45:53Z"),
-            new CustomerDTO(82.24, 3, java.util.List.of("MERC-003", "MERC-016")),
-            new MerchantDTO("MERC-016", "5411", 60.25),
-            new TerminalDTO(false, true, 29.23),
+            new TransactionDTO(41.12F, 2, "2026-03-11T18:45:53Z"),
+            new CustomerDTO(82.24f, 3, java.util.List.of("MERC-003", "MERC-016")),
+            new MerchantDTO("MERC-016", "5411", 60.25f),
+            new TerminalDTO(false, true, 29.23F),
             null);
 
     TransactionVector vector =
-        TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15));
+        TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15F));
 
     float[] features = vector.features();
     assertEquals(0.0041f, features[0], 0.001f);
@@ -95,12 +95,12 @@ class TransactionVectorTest {
   }
 
   private FraudRequest createSampleRequest(
-      double amount,
+      float amount,
       int installments,
-      double avgAmount,
+      float avgAmount,
       int txCount24h,
-      double merchantAvgAmount,
-      double kmFromHome,
+      float merchantAvgAmount,
+      float kmFromHome,
       boolean isOnline,
       boolean cardPresent,
       String mcc,
@@ -120,15 +120,15 @@ class TransactionVectorTest {
     FraudRequest request =
         new FraudRequest(
             "tx-123",
-            new TransactionDTO(100.0, 1, "2026-03-11T18:45:53Z"),
-            new CustomerDTO(500.0, 2, List.of("MERC-001")),
-            new MerchantDTO("MERC-001", "5411", 300.0),
-            new TerminalDTO(false, true, 10.0),
-            null);
-
+             new TransactionDTO(100.0f, 1, "2026-03-11T18:45:53Z"),
+             new CustomerDTO(500.0f, 2, List.of("MERC-001")),
+             new MerchantDTO("MERC-001", "5411", 300.0f),
+             new TerminalDTO(false, true, 10.0f),
+             null);
+    
     TransactionVector vector =
-        TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15));
-
+        TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15f));
+    
     float[] features = vector.features();
     assertEquals(-1.0f, features[5], 0.001f);
     assertEquals(-1.0f, features[6], 0.001f);
@@ -139,15 +139,15 @@ class TransactionVectorTest {
     FraudRequest request =
         new FraudRequest(
             "tx-123",
-            new TransactionDTO(100.0, 1, "2026-03-11T18:45:53Z"),
-            new CustomerDTO(500.0, 2, List.of("MERC-999")),
-            new MerchantDTO("MERC-001", "5411", 300.0),
-            new TerminalDTO(false, true, 10.0),
+             new TransactionDTO(100.0f, 1, "2026-03-11T18:45:53Z"),
+             new CustomerDTO(500.0f, 2, List.of("MERC-999")),
+             new MerchantDTO("MERC-001", "5411", 300.0f),
+             new TerminalDTO(false, true, 10.0f),
             null);
 
     TransactionVector vector =
-        TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15));
-
+        TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15f));
+    
     float[] features = vector.features();
     assertEquals(1.0f, features[11], 0.001f);
   }
@@ -157,15 +157,15 @@ class TransactionVectorTest {
     FraudRequest request =
         new FraudRequest(
             "tx-123",
-            new TransactionDTO(100.0, 1, "2026-03-11T18:45:53Z"),
-            new CustomerDTO(500.0, 2, List.of("MERC-001")),
-            new MerchantDTO("MERC-001", "9999", 300.0),
-            new TerminalDTO(false, true, 10.0),
+             new TransactionDTO(100.0f, 1, "2026-03-11T18:45:53Z"),
+             new CustomerDTO(500.0f, 2, List.of("MERC-001")),
+             new MerchantDTO("MERC-001", "9999", 300.0f),
+             new TerminalDTO(false, true, 10.0f),
             null);
 
     TransactionVector vector =
-        TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15));
-
+        TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15f));
+    
     float[] features = vector.features();
     assertEquals(0.5f, features[12], 0.001f);
   }
@@ -175,15 +175,15 @@ class TransactionVectorTest {
     FraudRequest request =
         new FraudRequest(
             "tx-123",
-            new TransactionDTO(50000.0, 1, "2026-03-11T18:45:53Z"),
-            new CustomerDTO(500.0, 2, List.of("MERC-001")),
-            new MerchantDTO("MERC-001", "5411", 300.0),
-            new TerminalDTO(false, true, 10.0),
+             new TransactionDTO(50000.0f, 1, "2026-03-11T18:45:53Z"),
+             new CustomerDTO(500.0f, 2, List.of("MERC-001")),
+             new MerchantDTO("MERC-001", "5411", 300.0f),
+             new TerminalDTO(false, true, 10.0f),
             null);
 
     TransactionVector vector =
-        TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15));
-
+        TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15f));
+    
     float[] features = vector.features();
     assertEquals(1.0f, features[0], 0.001f);
   }
@@ -193,15 +193,15 @@ class TransactionVectorTest {
     FraudRequest request =
         new FraudRequest(
             "tx-123",
-            new TransactionDTO(100.0, 24, "2026-03-11T18:45:53Z"),
-            new CustomerDTO(500.0, 2, List.of("MERC-001")),
-            new MerchantDTO("MERC-001", "5411", 300.0),
-            new TerminalDTO(false, true, 10.0),
+             new TransactionDTO(100.0f, 24, "2026-03-11T18:45:53Z"),
+             new CustomerDTO(500.0f, 2, List.of("MERC-001")),
+             new MerchantDTO("MERC-001", "5411", 300.0f),
+             new TerminalDTO(false, true, 10.0f),
             null);
 
     TransactionVector vector =
-        TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15));
-
+        TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15f));
+    
     float[] features = vector.features();
     assertEquals(1.0f, features[1], 0.001f);
   }

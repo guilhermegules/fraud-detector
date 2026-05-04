@@ -37,10 +37,10 @@ class FraudDetectionIntegrationTest {
   void shouldDetectLegitimateTransaction() {
     FraudRequest request = new FraudRequest(
         "tx-1329056812",
-        new TransactionDTO(41.12, 2, "2026-03-11T18:45:53Z"),
-        new CustomerDTO(82.24, 3, List.of("MERC-003", "MERC-016")),
-        new MerchantDTO("MERC-016", "5411", 60.25),
-        new TerminalDTO(false, true, 29.23),
+        new TransactionDTO(41.12f, 2, "2026-03-11T18:45:53Z"),
+        new CustomerDTO(82.24f, 3, List.of("MERC-003", "MERC-016")),
+        new MerchantDTO("MERC-016", "5411", 60.25f),
+        new TerminalDTO(false, true, 29.23f),
         null
     );
 
@@ -58,10 +58,10 @@ class FraudDetectionIntegrationTest {
   void shouldDetectFraudulentTransaction() {
     FraudRequest request = new FraudRequest(
         "tx-3330991687",
-        new TransactionDTO(9505.97, 10, "2026-03-14T05:15:12Z"),
-        new CustomerDTO(81.28, 20, List.of("MERC-008", "MERC-007", "MERC-005")),
-        new MerchantDTO("MERC-068", "7802", 54.86),
-        new TerminalDTO(false, true, 952.27),
+        new TransactionDTO(9505.97f, 10, "2026-03-14T05:15:12Z"),
+        new CustomerDTO(81.28f, 20, List.of("MERC-008", "MERC-007", "MERC-005")),
+        new MerchantDTO("MERC-068", "7802", 54.86f),
+        new TerminalDTO(false, true, 952.27f),
         null
     );
 

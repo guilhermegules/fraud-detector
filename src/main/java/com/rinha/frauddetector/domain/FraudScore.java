@@ -1,15 +1,15 @@
 package com.rinha.frauddetector.domain;
 
-public record FraudScore(boolean approved, double score) {
+public record FraudScore(boolean approved, float score) {
 
-  public static final FraudScore SAFE = new FraudScore(true, 0.0);
+  public static final FraudScore SAFE = new FraudScore(true, 0.0f);
 
-  public static FraudScore fromScore(double score) {
-    return new FraudScore(score < 0.5, clamp(score));
+  public static FraudScore fromScore(float score) {
+    return new FraudScore(score < 0.5f, clamp(score));
   }
 
-  private static double clamp(double v) {
-    return Math.clamp(v, 0.0, 1.0);
+  private static float clamp(float v) {
+    return Math.clamp(v, 0.0f, 1.0f);
   }
 
   public boolean isFraudulent() {

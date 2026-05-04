@@ -24,25 +24,19 @@ public class ReferenceLoader {
     this.objectMapper = new ObjectMapper();
   }
 
-  public void loadAll() throws IOException {
-    loadNormalization();
-    loadMccRisk();
-    loadReferences();
-  }
-
-  private void loadNormalization() throws IOException {
+  public void loadNormalization() throws IOException {
     try (InputStream is = new ClassPathResource("normalization.json").getInputStream()) {
       normalizationConstants = objectMapper.readValue(is, NormalizationConstants.class);
     }
   }
 
-  private void loadMccRisk() throws IOException {
+  public void loadMccRisk() throws IOException {
     try (InputStream is = new ClassPathResource("mcc_risk.json").getInputStream()) {
       mccRiskMap = objectMapper.readValue(is, new TypeReference<Map<String, Double>>() {});
     }
   }
 
-  private void loadReferences() throws IOException {
+  public void loadReferences() throws IOException {
     try (InputStream is = new ClassPathResource("references.json.gz").getInputStream();
         GZIPInputStream gzis = new GZIPInputStream(is)) {
 
@@ -55,7 +49,7 @@ public class ReferenceLoader {
 
       for (int i = 0; i < size; i++) {
         ReferenceItem record = records.get(i);
-        float[] floatVector = toFloatArray(record.vector());
+        float[] floatVector = record.vector();
         vectors[i] = new TransactionVector(floatVector);
         labels[i] = "fraud".equals(record.label());
       }

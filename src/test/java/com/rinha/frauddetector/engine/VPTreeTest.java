@@ -14,7 +14,7 @@ class VPTreeTest {
   @Test
   void buildEmptyTree() {
     VPTree<Integer> tree = new VPTree<>(new ArrayList<>(), intDist);
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 5), 1);
+    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 5), 1);
     assertTrue(neighbors.isEmpty());
   }
 
@@ -23,7 +23,7 @@ class VPTreeTest {
     List<Integer> items = Collections.singletonList(5);
     VPTree<Integer> tree = new VPTree<>(items, intDist);
 
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 5), 1);
+    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 5), 1);
 
     assertEquals(1, neighbors.size());
     assertEquals(5, neighbors.get(0).item());
@@ -34,11 +34,11 @@ class VPTreeTest {
     List<Integer> items = Arrays.asList(1, 2, 3, 4, 5);
     VPTree<Integer> tree = new VPTree<>(items, intDist);
 
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 3), 1);
+    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 3), 1);
 
     assertEquals(1, neighbors.size());
     assertEquals(3, neighbors.get(0).item());
-    assertEquals(0.0, neighbors.get(0).distance(), 0.001);
+    assertEquals(0.0f, neighbors.get(0).distance(), 0.001f);
   }
 
   @Test
@@ -46,7 +46,7 @@ class VPTreeTest {
     List<Integer> items = Arrays.asList(1, 2, 3, 4, 5);
     VPTree<Integer> tree = new VPTree<>(items, intDist);
 
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 2.5), 2);
+    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 2.5f), 2);
 
     assertEquals(2, neighbors.size());
     Set<Integer> neighborItems =
@@ -87,9 +87,9 @@ class VPTreeTest {
             2);
 
     assertEquals(2, neighbors.size());
-    neighbors.sort(Comparator.comparingDouble(VPTree.Neighbor::distance));
-    assertEquals(0.5, neighbors.get(0).distance(), 0.001);
-    assertEquals(0.5, neighbors.get(1).distance(), 0.001);
+    neighbors.sort(Comparator.comparing(n -> n.distance()));
+    assertEquals(0.5f, neighbors.get(0).distance(), 0.001f);
+    assertEquals(0.5f, neighbors.get(1).distance(), 0.001f);
   }
 
   @Test
@@ -99,7 +99,7 @@ class VPTreeTest {
 
     VPTree<Integer> tree = new VPTree<>(items, intDist);
 
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 50), 5);
+      List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 50), 5);
 
     assertEquals(5, neighbors.size());
     Set<Integer> actual = neighbors.stream().map(VPTree.Neighbor::item).collect(Collectors.toSet());
@@ -113,7 +113,7 @@ class VPTreeTest {
   @Test
   void searchEmptyTree() {
     VPTree<Integer> tree = new VPTree<>(new ArrayList<>(), intDist);
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 5), 3);
+    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 5), 3);
     assertTrue(neighbors.isEmpty());
   }
 
@@ -122,11 +122,11 @@ class VPTreeTest {
     List<Integer> items = Collections.singletonList(42);
     VPTree<Integer> tree = new VPTree<>(items, intDist);
 
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 100), 1);
+    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 100), 1);
 
     assertEquals(1, neighbors.size());
     assertEquals(42, neighbors.get(0).item());
-    assertEquals(58.0, neighbors.get(0).distance(), 0.001);
+    assertEquals(58.0f, neighbors.get(0).distance(), 0.001f);
   }
 
   @Test
@@ -134,12 +134,12 @@ class VPTreeTest {
     List<Integer> items = Arrays.asList(1, 1, 2, 2, 3, 3);
     VPTree<Integer> tree = new VPTree<>(items, intDist);
 
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 2), 2);
+    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 2), 2);
 
     assertEquals(2, neighbors.size());
-    neighbors.sort(Comparator.comparingDouble(VPTree.Neighbor::distance));
+    neighbors.sort(Comparator.comparing(n -> n.distance()));
     assertEquals(2, neighbors.get(0).item());
-    assertEquals(0.0, neighbors.get(0).distance(), 0.001);
+    assertEquals(0.0f, neighbors.get(0).distance(), 0.001f);
   }
 
   @Test
@@ -147,15 +147,15 @@ class VPTreeTest {
     List<Integer> items = Arrays.asList(1, 2, 3, 4, 5);
     VPTree<Integer> tree = new VPTree<>(items, intDist);
 
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 3), 0);
+    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 3), 0);
 
     assertTrue(neighbors.isEmpty());
   }
 
   @Test
   void neighborRecord() {
-    VPTree.Neighbor<Integer> neighbor = new VPTree.Neighbor<>(5.0, 10);
-    assertEquals(5.0, neighbor.distance(), 0.001);
+    VPTree.Neighbor<Integer> neighbor = new VPTree.Neighbor<>(5.0f, 10);
+    assertEquals(5.0f, neighbor.distance(), 0.001f);
     assertEquals(10, neighbor.item());
   }
 
@@ -165,7 +165,7 @@ class VPTreeTest {
     List<String> items = Arrays.asList("a", "bb", "ccc", "dddd");
     VPTree<String> tree = new VPTree<>(items, strDist);
 
-    List<VPTree.Neighbor<String>> neighbors = tree.search(item -> Math.abs(item.length() - 2), 2);
+    List<VPTree.Neighbor<String>> neighbors = tree.search(item -> (float) Math.abs(item.length() - 2), 2);
 
     assertEquals(2, neighbors.size());
     assertTrue(neighbors.stream().anyMatch(n -> n.item().equals("bb")));
@@ -177,16 +177,16 @@ class VPTreeTest {
     List<Integer> items = Arrays.asList(5, 10, 15, 20);
     VPTree<Integer> tree = new VPTree<>(items, intDist);
 
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 12), 10);
+    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 12), 10);
 
     assertEquals(4, neighbors.size());
-    neighbors.sort(Comparator.comparingDouble(VPTree.Neighbor::distance));
+    neighbors.sort(Comparator.comparing(n -> n.distance()));
     assertEquals(10, neighbors.get(0).item());
-    assertEquals(2.0, neighbors.get(0).distance(), 0.001);
+    assertEquals(2.0f, neighbors.get(0).distance(), 0.001f);
     assertEquals(15, neighbors.get(1).item());
-    assertEquals(3.0, neighbors.get(1).distance(), 0.001);
+    assertEquals(3.0f, neighbors.get(1).distance(), 0.001f);
     assertEquals(5, neighbors.get(2).item());
-    assertEquals(7.0, neighbors.get(2).distance(), 0.001);
+    assertEquals(7.0f, neighbors.get(2).distance(), 0.001f);
   }
 
   @Test
@@ -194,13 +194,13 @@ class VPTreeTest {
     List<Integer> items = Arrays.asList(10, 20, 30);
     VPTree<Integer> tree = new VPTree<>(items, intDist);
 
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 25), 5);
+    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 25), 5);
 
     assertEquals(3, neighbors.size());
-    neighbors.sort(Comparator.comparingDouble(VPTree.Neighbor::distance));
-    assertEquals(5.0, neighbors.get(0).distance(), 0.001);
-    assertEquals(5.0, neighbors.get(1).distance(), 0.001);
-    assertEquals(15.0, neighbors.get(2).distance(), 0.001);
+    neighbors.sort(Comparator.comparing(n -> n.distance()));
+    assertEquals(5.0f, neighbors.get(0).distance(), 0.001f);
+    assertEquals(5.0f, neighbors.get(1).distance(), 0.001f);
+    assertEquals(15.0f, neighbors.get(2).distance(), 0.001f);
   }
 
   @Test
@@ -208,7 +208,7 @@ class VPTreeTest {
     List<Integer> items = Arrays.asList(1, 5, 10, 20, 50);
     VPTree<Integer> tree = new VPTree<>(items, intDist);
 
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 11), 3);
+    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 11), 3);
 
     assertEquals(3, neighbors.size());
     assertTrue(neighbors.get(0).distance() <= neighbors.get(1).distance());

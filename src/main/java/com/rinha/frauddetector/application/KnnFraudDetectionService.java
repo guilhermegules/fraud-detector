@@ -1,5 +1,6 @@
 package com.rinha.frauddetector.application;
 
+import com.rinha.frauddetector.adapter.loader.ReferenceLoader;
 import com.rinha.frauddetector.domain.FraudDetectionService;
 import com.rinha.frauddetector.domain.FraudScore;
 import com.rinha.frauddetector.domain.TransactionVector;
@@ -11,11 +12,16 @@ import java.util.List;
 
 public class KnnFraudDetectionService implements FraudDetectionService {
 
-  private static final int K = 5;
+  private static final int NEAREST_NEIGHBOR = 5;
 
   private VPTree<TransactionVector> vpTree;
   private boolean[] labels;
   private TransactionVector[] vectors;
+  private final ReferenceLoader referenceLoader;
+
+  public KnnFraudDetectionService(ReferenceLoader referenceLoader) {
+    this.referenceLoader = referenceLoader;
+  }
 
   @Override
   public void loadDataset(TransactionVector[] vectors, boolean[] labels) {
@@ -42,7 +48,7 @@ public class KnnFraudDetectionService implements FraudDetectionService {
     }
 
     try {
-      List<VPTree.Neighbor<TransactionVector>> neighbors = vpTree.search(vector::distanceTo, K);
+      List<VPTree.Neighbor<TransactionVector>> neighbors = vpTree.search(vector::distanceTo, NEAREST_NEIGHBOR);
 
       if (neighbors.isEmpty()) {
         return FraudScore.SAFE;
@@ -57,7 +63,7 @@ public class KnnFraudDetectionService implements FraudDetectionService {
                   })
               .sum();
 
-      double score = (double) fraudVotes / neighbors.size();
+      float score = (float) fraudVotes / neighbors.size();
       return FraudScore.fromScore(score);
     } catch (Exception e) {
       return FraudScore.SAFE;

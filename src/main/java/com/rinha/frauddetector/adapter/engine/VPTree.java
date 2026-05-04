@@ -1,7 +1,7 @@
 package com.rinha.frauddetector.adapter.engine;
 
 import java.util.*;
-import java.util.function.ToDoubleFunction;
+import java.util.function.Function;
 
 public class VPTree<T> {
   private final Distance<T> distance;
@@ -14,7 +14,7 @@ public class VPTree<T> {
 
   public static class VPTreeNode<T> {
     T item;
-    double threshold;
+    float threshold;
     VPTreeNode<T> left;
     VPTreeNode<T> right;
 
@@ -23,19 +23,19 @@ public class VPTree<T> {
     }
   }
 
-  public record Neighbor<T>(double distance, T item) {}
+  public record Neighbor<T>(float distance, T item) {}
 
-  public List<Neighbor<T>> search(ToDoubleFunction<T> queryDistance, int k) {
+  public List<Neighbor<T>> search(Function<T, Float> queryDistance, int k) {
     if (k <= 0) return new ArrayList<>();
     PriorityQueue<Neighbor<T>> pq = new PriorityQueue<>(Math.max(k, 1), comparatorPriorityQueue);
     searchNode(root, queryDistance, pq, k);
     List<Neighbor<T>> result = new ArrayList<>(pq);
-    result.sort(Comparator.comparingDouble(n -> n.distance));
+    result.sort(Comparator.comparing(n -> n.distance));
     return result;
   }
 
   private final Comparator<Neighbor<T>> comparatorPriorityQueue =
-      (a, b) -> Double.compare(b.distance, a.distance);
+      (a, b) -> Float.compare(b.distance, a.distance);
 
   private VPTreeNode<T> build(List<T> items) {
     if (items == null || items.isEmpty()) {
@@ -52,14 +52,14 @@ public class VPTree<T> {
       return node;
     }
 
-    List<Double> distances = new ArrayList<>(items.size());
+    List<Float> distances = new ArrayList<>(items.size());
     for (T item : items) {
       distances.add(distance.calculate(vp, item));
     }
 
-    List<Double> sorted = new ArrayList<>(distances);
+    List<Float> sorted = new ArrayList<>(distances);
     Collections.sort(sorted);
-    double median = sorted.get(sorted.size() / 2);
+    float median = sorted.get(sorted.size() / 2);
     node.threshold = median;
 
     List<T> inner = new ArrayList<>();
@@ -79,10 +79,10 @@ public class VPTree<T> {
   }
 
   private void searchNode(
-      VPTreeNode<T> node, ToDoubleFunction<T> queryDistance, PriorityQueue<Neighbor<T>> pq, int k) {
+      VPTreeNode<T> node, Function<T, Float> queryDistance, PriorityQueue<Neighbor<T>> pq, int k) {
     if (node == null) return;
 
-    double dist = queryDistance.applyAsDouble(node.item);
+    float dist = queryDistance.apply(node.item);
     Neighbor<T> current = new Neighbor<>(dist, node.item);
 
     if (pq.size() < k) {
@@ -94,11 +94,11 @@ public class VPTree<T> {
 
     if (node.left == null && node.right == null) return;
 
-    double threshold = node.threshold;
-    double maxDist =
+    float threshold = node.threshold;
+    float maxDist =
         (pq.size() >= k)
-            ? (pq.peek() != null ? pq.peek().distance : Double.MAX_VALUE)
-            : Double.MAX_VALUE;
+            ? (pq.peek() != null ? pq.peek().distance : Float.MAX_VALUE)
+            : Float.MAX_VALUE;
 
     if (dist < threshold) {
       if (dist < threshold + maxDist) {

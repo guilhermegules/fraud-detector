@@ -9,52 +9,52 @@ class FraudScoreTest {
   void shouldCreateSafeScore() {
     FraudScore score = FraudScore.SAFE;
     assertTrue(score.approved());
-    assertEquals(0.0, score.score(), 0.001);
+    assertEquals(0.0f, score.score(), 0.001f);
   }
 
   @Test
   void shouldCreateFromScoreLowRisk() {
-    FraudScore score = FraudScore.fromScore(0.3);
+    FraudScore score = FraudScore.fromScore(0.3f);
     assertTrue(score.approved());
-    assertEquals(0.3, score.score(), 0.001);
+    assertEquals(0.3f, score.score(), 0.001f);
   }
 
   @Test
   void shouldCreateFromScoreHighRisk() {
-    FraudScore score = FraudScore.fromScore(0.7);
+    FraudScore score = FraudScore.fromScore(0.7f);
     assertFalse(score.approved());
-    assertEquals(0.7, score.score(), 0.001);
+    assertEquals(0.7f, score.score(), 0.001f);
   }
 
   @Test
   void shouldClampScoreAboveOne() {
-    FraudScore score = FraudScore.fromScore(1.5);
-    assertEquals(1.0, score.score(), 0.001);
+    FraudScore score = FraudScore.fromScore(1.5f);
+    assertEquals(1.0f, score.score(), 0.001f);
   }
 
   @Test
   void shouldClampScoreBelowZero() {
-    FraudScore score = FraudScore.fromScore(-0.5);
-    assertEquals(0.0, score.score(), 0.001);
+    FraudScore score = FraudScore.fromScore(-0.5f);
+    assertEquals(0.0f, score.score(), 0.001f);
   }
 
   @Test
   void shouldIdentifyFraudulent() {
-    FraudScore fraudulent = FraudScore.fromScore(0.9);
+    FraudScore fraudulent = FraudScore.fromScore(0.9f);
     assertTrue(fraudulent.isFraudulent());
     assertTrue(fraudulent.isHighRisk());
   }
 
   @Test
   void shouldIdentifySafe() {
-    FraudScore safe = FraudScore.fromScore(0.2);
+    FraudScore safe = FraudScore.fromScore(0.2f);
     assertFalse(safe.isFraudulent());
     assertTrue(safe.isLowRisk());
   }
 
   @Test
   void shouldIdentifyMediumRisk() {
-    FraudScore medium = FraudScore.fromScore(0.6);
+    FraudScore medium = FraudScore.fromScore(0.6f);
     assertTrue(medium.isMediumRisk());
     assertFalse(medium.isLowRisk());
     assertFalse(medium.isHighRisk());

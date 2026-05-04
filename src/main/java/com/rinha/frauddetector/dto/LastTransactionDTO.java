@@ -2,5 +2,5 @@ package com.rinha.frauddetector.dto;
 
 public record LastTransactionDTO(
     String timestamp,
-    double km_from_current
+    float km_from_current
 ) {}

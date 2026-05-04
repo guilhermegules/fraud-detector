@@ -33,13 +33,13 @@ class ReferenceLoaderTest {
     ReferenceLoader loader = new ReferenceLoader();
     loader.loadAll();
 
-    Map<String, Double> mccRiskMap = loader.getMccRiskMap();
+    Map<String, Float> mccRiskMap = loader.getMccRiskMap();
 
     assertNotNull(mccRiskMap);
-    assertEquals(0.15, mccRiskMap.get("5411"), 0.001);
-    assertEquals(0.30, mccRiskMap.get("5812"), 0.001);
-    assertEquals(0.20, mccRiskMap.get("5912"), 0.001);
-    assertEquals(0.50, mccRiskMap.getOrDefault("9999", 0.5), 0.001);
+    assertEquals(0.15f, mccRiskMap.get("5411"), 0.001f);
+    assertEquals(0.30f, mccRiskMap.get("5812"), 0.001f);
+    assertEquals(0.20f, mccRiskMap.get("5912"), 0.001f);
+    assertEquals(0.50f, mccRiskMap.getOrDefault("9999", 0.5f), 0.001f);
   }
 
   @Test

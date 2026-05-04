@@ -7,14 +7,16 @@ services:
       - "9999:9999"
     volumes:
       - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-    depends_on:
-      - api1
-      - api2
     deploy:
       resources:
         limits:
           cpus: "0.1"
           memory: "30MB"
+    depends_on:
+      api1:
+        condition: service_healthy
+      api2:
+        condition: service_healthy
 
   api1:
     image: guilhermegules/fraud-detector-rinha
@@ -26,6 +28,11 @@ services:
         limits:
           cpus: "0.45"
           memory: "160MB"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/ready" ]
+      interval: 3s
+      timeout: 10s
+      retries: 10
 
   api2:
     image: guilhermegules/fraud-detector-rinha
@@ -37,6 +44,11 @@ services:
         limits:
           cpus: "0.45"
           memory: "160MB"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/ready" ]
+      interval: 3s
+      timeout: 10s
+      retries: 10
 
 networks:
   default:

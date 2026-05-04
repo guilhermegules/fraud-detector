@@ -19,9 +19,6 @@ public class FraudDetectionConfig {
 
   @Bean
   public FraudDetectionService fraudDetectionService(ReferenceLoader referenceLoader) {
-    KnnFraudDetectionService service = new KnnFraudDetectionService();
-    FraudReference data = referenceLoader.getFraudReference();
-    service.loadDataset(data.vectors(), data.labels());
-    return service;
+    return new KnnFraudDetectionService(referenceLoader);
   }
 }
