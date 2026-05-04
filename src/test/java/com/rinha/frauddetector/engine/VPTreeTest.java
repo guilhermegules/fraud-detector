@@ -78,10 +78,10 @@ class VPTreeTest {
         tree.search(
             item -> {
               float sum = 0;
-              for (int i = 0; i < item.length; i++) {
-                float diff = item[i] - 0.5f;
-                sum += diff * diff;
-              }
+                for (float v : item) {
+                    float diff = v - 0.5f;
+                    sum += diff * diff;
+                }
               return sum;
             },
             2);
@@ -197,7 +197,7 @@ class VPTreeTest {
     List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 25), 5);
 
     assertEquals(3, neighbors.size());
-    neighbors.sort(Comparator.comparingDouble(n -> n.distance()));
+    neighbors.sort(Comparator.comparingDouble(VPTree.Neighbor::distance));
     assertEquals(5.0, neighbors.get(0).distance(), 0.001);
     assertEquals(5.0, neighbors.get(1).distance(), 0.001);
     assertEquals(15.0, neighbors.get(2).distance(), 0.001);
