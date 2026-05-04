@@ -67,7 +67,7 @@ docker compose up --build
 ```
 
 This will start:
-- 2 instances of the fraud detector API (fraud-detector-1, fraud-detector-2)
+- 2 instances of the fraud detector API (api-1, api-2)
 - HAProxy load balancer on port 9999
 
 ### Using Docker Compose (Development)
