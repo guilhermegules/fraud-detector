@@ -1,5 +1,7 @@
 package com.rinha.frauddetector.service;
 
+import com.rinha.frauddetector.dto.FraudRequest;
+import com.rinha.frauddetector.dto.FraudResponse;
 import com.rinha.frauddetector.engine.FraudDetectionEngine;
 import org.springframework.stereotype.Service;
 
@@ -9,5 +11,9 @@ public class FraudService {
 
   public FraudService(FraudDetectionEngine fraudDetectionEngine) {
     this.fraudDetectionEngine = fraudDetectionEngine;
+  }
+
+  public FraudResponse generateFraudScore(FraudRequest request) {
+    return fraudDetectionEngine.evaluate(request);
   }
 }
