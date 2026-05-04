@@ -1,4 +1,4 @@
-package com.rinha.frauddetector.engine;
+package com.rinha.frauddetector.adapter.engine;
 
 @FunctionalInterface
 public interface Distance<T> {

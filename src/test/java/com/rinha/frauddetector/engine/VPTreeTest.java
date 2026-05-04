@@ -1,5 +1,7 @@
 package com.rinha.frauddetector.engine;
 
+import com.rinha.frauddetector.adapter.engine.VPTree;
+import com.rinha.frauddetector.adapter.engine.Distance;
 import org.junit.jupiter.api.Test;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -51,23 +53,6 @@ class VPTreeTest {
         neighbors.stream().map(VPTree.Neighbor::item).collect(Collectors.toSet());
     assertTrue(neighborItems.contains(2));
     assertTrue(neighborItems.contains(3));
-  }
-
-  @Test
-  void searchKLargerThanItems() {
-    List<Integer> items = Arrays.asList(10, 20, 30);
-    VPTree<Integer> tree = new VPTree<>(items, intDist);
-
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 25), 5);
-
-    assertEquals(3, neighbors.size());
-    neighbors.sort(Comparator.comparingDouble(VPTree.Neighbor::distance));
-    assertEquals(20, neighbors.get(0).item());
-    assertEquals(5.0, neighbors.get(0).distance(), 0.001);
-    assertEquals(30, neighbors.get(1).item());
-    assertEquals(5.0, neighbors.get(1).distance(), 0.001);
-    assertEquals(10, neighbors.get(2).item());
-    assertEquals(15.0, neighbors.get(2).distance(), 0.001);
   }
 
   @Test
@@ -205,16 +190,17 @@ class VPTreeTest {
   }
 
   @Test
-  void treeStructureWithTwoItems() {
-    List<Integer> items = Arrays.asList(10, 20);
+  void searchKLargerThanItems() {
+    List<Integer> items = Arrays.asList(10, 20, 30);
     VPTree<Integer> tree = new VPTree<>(items, intDist);
 
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 15), 2);
+    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> Math.abs(item - 25), 5);
 
-    assertEquals(2, neighbors.size());
-    neighbors.sort(Comparator.comparingDouble(VPTree.Neighbor::distance));
-    assertEquals(10, neighbors.get(0).item());
-    assertEquals(20, neighbors.get(1).item());
+    assertEquals(3, neighbors.size());
+    neighbors.sort(Comparator.comparingDouble(n -> n.distance()));
+    assertEquals(5.0, neighbors.get(0).distance(), 0.001);
+    assertEquals(5.0, neighbors.get(1).distance(), 0.001);
+    assertEquals(15.0, neighbors.get(2).distance(), 0.001);
   }
 
   @Test

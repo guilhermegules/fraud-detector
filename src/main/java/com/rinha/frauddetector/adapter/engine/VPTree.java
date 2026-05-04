@@ -1,4 +1,4 @@
-package com.rinha.frauddetector.engine;
+package com.rinha.frauddetector.adapter.engine;
 
 import java.util.*;
 import java.util.function.ToDoubleFunction;
@@ -27,13 +27,15 @@ public class VPTree<T> {
 
   public List<Neighbor<T>> search(ToDoubleFunction<T> queryDistance, int k) {
     if (k <= 0) return new ArrayList<>();
-    PriorityQueue<Neighbor<T>> pq =
-        new PriorityQueue<>(Math.max(k, 1), (a, b) -> Double.compare(b.distance, a.distance));
+    PriorityQueue<Neighbor<T>> pq = new PriorityQueue<>(Math.max(k, 1), comparatorPriorityQueue);
     searchNode(root, queryDistance, pq, k);
     List<Neighbor<T>> result = new ArrayList<>(pq);
     result.sort(Comparator.comparingDouble(n -> n.distance));
     return result;
   }
+
+  private final Comparator<Neighbor<T>> comparatorPriorityQueue =
+      (a, b) -> Double.compare(b.distance, a.distance);
 
   private VPTreeNode<T> build(List<T> items) {
     if (items == null || items.isEmpty()) {

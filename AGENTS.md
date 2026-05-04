@@ -379,6 +379,88 @@ Focus on:
 
 ---
 
+## Code Formatting (Google Java Style Guide)
+
+### Source File Basics
+
+* Files encoded in **UTF-8**
+* Use **2 spaces** for indentation (no tabs)
+* File length: max **1000 lines**
+* No wildcard imports (`import java.util.*`)
+* Import order: same-package, third-party, java, javax
+
+### Braces
+
+* Use **K&R style** (opening brace at end of line)
+* Braces required for all control structures (if, else, for, while, etc.)
+* Empty blocks: `{}` preferred over `;`
+
+```java
+if (condition) {
+    doSomething();
+} else {
+    doOther();
+}
+```
+
+### Column Limit
+
+* **100 characters** max per line
+* Wrap lines at logical points (operators, after commas)
+* Indent continuation lines **4 spaces**
+
+### Naming Conventions
+
+| Element | Convention | Example |
+|---------|-------------|---------|
+| Package | all lowercase, no underscores | `com.rinha.fraudetector` |
+| Class | UpperCamelCase | `FraudDetectionEngine` |
+| Method | lowerCamelCase | `evaluateRequest()` |
+| Variable | lowerCamelCase | `vectorCount` |
+| Constant | UPPER_UNDERSCORE | `MAX_VECTOR_SIZE` |
+| Type Parameter | Single uppercase | `T`, `E`, `K`, `V` |
+
+### Whitespace
+
+* One blank line between methods
+* No trailing whitespace
+* Blank lines optional at beginning/end of file
+* Space after keywords: `if`, `for`, `while`, `catch`
+* Space before opening brace `{`
+* Space around operators: `=`, `+`, `==`, `&&`
+
+### Declarations
+
+* One declaration per line
+* Variable declarations close to first use
+* Array: `float[] vectors` NOT `float vectors[]`
+
+### Programming Practices
+
+* No raw types (use generics)
+* Use `@Override` always when applicable
+* Caught exceptions: either rethrow or log, not ignore
+* Static members: access via class name, not instance
+
+### Javadoc
+
+* Required for public/protected classes and methods
+* First sentence ends with period
+* No `{@inheritDoc}` abuse
+* Missing Javadoc: use `//` comment or nothing
+
+```java
+/**
+ * Calculates the fraud score based on k-NN algorithm.
+ *
+ * @param vector the transaction vector to evaluate
+ * @return the calculated fraud score
+ */
+public FraudScore evaluate(TransactionVector vector) { ... }
+```
+
+---
+
 ## Unit Tests
 
 ### Guidelines
@@ -387,6 +469,7 @@ Focus on:
 * Test business logic in service layer
 * Mock dependencies when needed
 * Test coverage for critical paths
+* Follow Google Java Style Guide for test code
 
 ### Test Structure
 
@@ -397,6 +480,12 @@ src/test/java/com/rinha/frauddetector
 │   └── FraudControllerTest.java
 ├── service
 │   └── FraudServiceTest.java
+├── domain
+│   ├── FraudScoreTest.java
+│   └── TransactionVectorTest.java
+├── engine
+│   ├── FraudDetectionEngineTest.java
+│   └── VPTreeTest.java
 └── FrauddetectorApplicationTests.java
 ```
 
@@ -406,45 +495,46 @@ src/test/java/com/rinha/frauddetector
 @SpringBootTest
 class FraudControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+  @Autowired private MockMvc mockMvc;
 
-    @Test
-    void shouldReturnFraudScore() throws Exception {
-        String requestJson = """
-            {
-                "id": "tx-123",
-                "transaction": {
-                    "amount": 100.0,
-                    "installments": 1,
-                    "requested_at": "2026-03-11T20:23:35Z"
-                },
-                "customer": {
-                    "avg_amount": 500.0,
-                    "tx_count_24h": 2,
-                    "known_merchants": ["MERC-001"]
-                },
-                "merchant": {
-                    "id": "MERC-001",
-                    "mcc": "5912",
-                    "avg_amount": 300.0
-                },
-                "terminal": {
-                    "is_online": false,
-                    "card_present": true,
-                    "km_from_home": 10.0
-                },
-                "last_transaction": null
-            }
-            """;
+  @Test
+  void shouldReturnFraudScore() throws Exception {
+    String requestJson =
+        """
+        {
+          "id": "tx-123",
+          "transaction": {
+            "amount": 100.0,
+            "installments": 1,
+            "requested_at": "2026-03-11T20:23:35Z"
+          },
+          "customer": {
+            "avg_amount": 500.0,
+            "tx_count_24h": 2,
+            "known_merchants": ["MERC-001"]
+          },
+          "merchant": {
+            "id": "MERC-001",
+            "mcc": "5912",
+            "avg_amount": 300.0
+          },
+          "terminal": {
+            "is_online": false,
+            "card_present": true,
+            "km_from_home": 10.0
+          },
+          "last_transaction": null
+        }
+        """;
 
-        mockMvc.perform(post("/fraud-score")
+    mockMvc.perform(
+            post("/fraud-score")
                 .contentType("application/json")
                 .content(requestJson))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.approved").exists())
-                .andExpect(jsonPath("$.fraud_score").exists());
-    }
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.approved").exists())
+        .andExpect(jsonPath("$.fraud_score").exists());
+  }
 }
 ```
 
@@ -454,3 +544,5 @@ class FraudControllerTest {
 * Fast execution (p99 ≤ 1ms per test)
 * No external service calls
 * Use in-memory data for service tests
+* No trailing whitespace
+* Max 100 characters per line
