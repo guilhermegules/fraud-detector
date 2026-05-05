@@ -19,14 +19,9 @@ WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
 
 ENV JAVA_OPTS="\
--Xms32m \
--Xmx80m \
--XX:MaxMetaspaceSize=32m \
--XX:ReservedCodeCacheSize=16m \
--XX:+UseSerialGC \
--XX:+UseContainerSupport \
--Xss256k \
--XX:+DisableExplicitGC"
+-Xms128m \
+-Xmx128m \
+"
 
 EXPOSE 8080
 

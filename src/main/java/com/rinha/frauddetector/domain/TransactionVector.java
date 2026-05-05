@@ -42,7 +42,7 @@ public record TransactionVector(float[] features) {
     final int dayOfWeek = instant.atZone(ZoneOffset.UTC).getDayOfWeek().getValue() - 1;
 
     final float amountRatio = customer.avg_amount() > 0
-        ? (float) (transaction.amount() / customer.avg_amount())
+        ? (transaction.amount() / customer.avg_amount())
         : 0.0f;
 
     float minutesSinceLastTx = 0;
@@ -57,7 +57,7 @@ public record TransactionVector(float[] features) {
     v[0] = clamp(transaction.amount() / constants.max_amount());
 
     // 1: installments
-    v[1] = clamp(transaction.installments() / (float) constants.max_installments());
+    v[1] = clamp(transaction.installments() / constants.max_installments());
 
     // 2: amount_vs_avg
     v[2] = clamp(amountRatio / constants.amount_vs_avg_ratio());
@@ -82,7 +82,7 @@ public record TransactionVector(float[] features) {
     v[7] = clamp(terminal.km_from_home() / constants.max_km());
 
     // 8: tx_count_24h
-    v[8] = clamp(customer.tx_count_24h() / (float) constants.max_tx_count_24h());
+    v[8] = clamp(customer.tx_count_24h() / constants.max_tx_count_24h());
 
     // 9: is_online
     v[9] = terminal.is_online() ? 1.0f : 0.0f;

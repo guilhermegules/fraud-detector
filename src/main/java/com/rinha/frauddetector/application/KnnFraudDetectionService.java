@@ -5,8 +5,11 @@ import com.rinha.frauddetector.domain.FraudDetectionService;
 import com.rinha.frauddetector.domain.FraudScore;
 import com.rinha.frauddetector.domain.TransactionVector;
 import com.rinha.frauddetector.adapter.engine.VPTree;
+import com.rinha.frauddetector.dto.FraudRequest;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -21,17 +24,23 @@ public class KnnFraudDetectionService implements FraudDetectionService {
 
   public KnnFraudDetectionService(ReferenceLoader referenceLoader) {
     this.referenceLoader = referenceLoader;
+    try {
+      ReferenceAccumulator acc = new ReferenceAccumulator(1024);
+
+      referenceLoader.loadReferences(acc::add);
+
+      TransactionVector[] vectors = Arrays.copyOf(acc.vectors, acc.size);
+      boolean[] labels = Arrays.copyOf(acc.labels, acc.size);
+
+      loadDataset(vectors, labels);
+    } catch (IOException e) {
+      System.out.println(e.getMessage());
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
   public void loadDataset(TransactionVector[] vectors, boolean[] labels) {
-    if (vectors == null || labels == null || vectors.length == 0) {
-      this.vpTree = null;
-      this.labels = new boolean[0];
-      this.vectors = new TransactionVector[0];
-      return;
-    }
-
     this.vectors = vectors;
     this.labels = labels;
 
@@ -42,8 +51,14 @@ public class KnnFraudDetectionService implements FraudDetectionService {
   }
 
   @Override
-  public FraudScore evaluate(TransactionVector vector) {
-    if (vector == null || vpTree == null) {
+  public FraudScore evaluate(FraudRequest request) {
+    TransactionVector vector = TransactionVector.fromRequest(
+            request,
+            referenceLoader.getNormalizationConstants(),
+            referenceLoader.getMccRiskMap()
+    );
+
+    if (vpTree == null) {
       return FraudScore.SAFE;
     }
 

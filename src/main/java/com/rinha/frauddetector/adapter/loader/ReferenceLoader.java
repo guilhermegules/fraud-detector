@@ -1,27 +1,36 @@
 package com.rinha.frauddetector.adapter.loader;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rinha.frauddetector.domain.FraudReference;
 import com.rinha.frauddetector.domain.NormalizationConstants;
-import com.rinha.frauddetector.domain.TransactionVector;
 import org.springframework.core.io.ClassPathResource;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.function.Consumer;
 import java.util.zip.GZIPInputStream;
 
 public class ReferenceLoader {
 
   private final ObjectMapper objectMapper;
+  private final JsonFactory jsonFactory;
+
   private NormalizationConstants normalizationConstants;
-  private Map<String, Double> mccRiskMap;
+  private Map<String, Float> mccRiskMap;
   private FraudReference fraudReference;
+  private static final float LEGIT_SAMPLE_RATE = Float.parseFloat(System.getenv().getOrDefault("SAMPLE_RATE", "0.05"));;
 
   public ReferenceLoader() {
     this.objectMapper = new ObjectMapper();
+    this.jsonFactory = objectMapper.getFactory();
   }
 
   public void loadNormalization() throws IOException {
@@ -32,46 +41,74 @@ public class ReferenceLoader {
 
   public void loadMccRisk() throws IOException {
     try (InputStream is = new ClassPathResource("mcc_risk.json").getInputStream()) {
-      mccRiskMap = objectMapper.readValue(is, new TypeReference<Map<String, Double>>() {});
+      mccRiskMap = objectMapper.readValue(is, new TypeReference<>() {});
     }
   }
 
-  public void loadReferences() throws IOException {
+  public Map<String, Float> getMccRiskMap() {
+    return mccRiskMap;
+  }
+
+  public void loadReferences(Consumer<ReferenceItem> consumer) throws IOException {
     try (InputStream is = new ClassPathResource("references.json.gz").getInputStream();
-        GZIPInputStream gzis = new GZIPInputStream(is)) {
+         GZIPInputStream gzis = new GZIPInputStream(is);
+         JsonParser parser = jsonFactory.createParser(gzis)) {
 
-      List<ReferenceItem> records =
-          objectMapper.readValue(gzis, new TypeReference<>() {});
+      Random random = new Random();
 
-      int size = records.size();
-      TransactionVector[] vectors = new TransactionVector[size];
-      boolean[] labels = new boolean[size];
-
-      for (int i = 0; i < size; i++) {
-        ReferenceItem record = records.get(i);
-        float[] floatVector = record.vector();
-        vectors[i] = new TransactionVector(floatVector);
-        labels[i] = "fraud".equals(record.label());
+      if (parser.nextToken() != JsonToken.START_ARRAY) {
+        throw new IllegalStateException("Expected JSON array");
       }
 
-      fraudReference = new FraudReference(vectors, labels);
+      while (parser.nextToken() == JsonToken.START_OBJECT) {
+
+        float[] vector = null;
+        boolean isFraud = false;
+
+        while (parser.nextToken() != JsonToken.END_OBJECT) {
+          String field = parser.currentName();
+          parser.nextToken();
+
+          if ("vector".equals(field)) {
+            vector = readFloatArray(parser);
+          } else if ("label".equals(field)) {
+            isFraud = "fraud".equals(parser.getValueAsString());
+          } else {
+            parser.skipChildren();
+          }
+        }
+
+        if (vector == null) continue;
+
+        if (!isFraud && random.nextFloat() > LEGIT_SAMPLE_RATE) {
+          continue;
+        }
+
+        consumer.accept(new ReferenceItem(vector, isFraud));
+      }
     }
   }
+  private float[] readFloatArray(JsonParser parser) throws IOException {
+    List<Float> temp = new ArrayList<>(14);
 
-  private float[] toFloatArray(double[] doubleArray) {
-    float[] floatArray = new float[doubleArray.length];
-    for (int i = 0; i < doubleArray.length; i++) {
-      floatArray[i] = (float) doubleArray[i];
+    if (parser.currentToken() != JsonToken.START_ARRAY) {
+      throw new IllegalStateException("Expected array");
     }
-    return floatArray;
+
+    while (parser.nextToken() != JsonToken.END_ARRAY) {
+      temp.add(parser.getFloatValue());
+    }
+
+    float[] arr = new float[temp.size()];
+    for (int i = 0; i < temp.size(); i++) {
+      arr[i] = temp.get(i);
+    }
+
+    return arr;
   }
 
   public NormalizationConstants getNormalizationConstants() {
     return normalizationConstants;
-  }
-
-  public Map<String, Double> getMccRiskMap() {
-    return mccRiskMap;
   }
 
   public FraudReference getFraudReference() {
