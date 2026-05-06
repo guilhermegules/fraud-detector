@@ -12,15 +12,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 
-import static java.lang.Integer.parseInt;
-
 public class ReferenceLoader {
 
   private static final int DIM = 14;
   private static final int HOURS = 24;
   private static final int DAYS = 7;
   private static final int TX_BUCKETS = 4;
-  private static final int BUCKET_COUNT = 8 * HOURS * DAYS * TX_BUCKETS;
+  public static final int BUCKET_COUNT = 8 * HOURS * DAYS * TX_BUCKETS;
 
   private static final int FILE_SIGNATURE = 0x52524546;
   private static final int VERSION = 1;
@@ -43,7 +41,7 @@ public class ReferenceLoader {
     }
   }
 
-  public void loadFraudReference() throws IOException {
+  public FraudReference loadFraudReference() throws IOException {
     int[] bucketCounts = countBuckets();
 
     int[] bucketStarts = new int[BUCKET_COUNT + 1];
@@ -58,7 +56,8 @@ public class ReferenceLoader {
 
     loadData(vectors, labels, bucketStarts.clone());
 
-    fraudReference = new FraudReference(vectors, labels);
+    fraudReference = new FraudReference(vectors, labels, bucketStarts, DIM);
+    return fraudReference;
   }
 
   private int[] countBuckets() throws IOException {

@@ -5,6 +5,4 @@ import com.rinha.frauddetector.dto.FraudRequest;
 public interface FraudDetectionService {
 
   FraudScore evaluate(FraudRequest request);
-
-  boolean isDatasetLoaded();
 }

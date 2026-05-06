@@ -5,24 +5,18 @@ import com.rinha.frauddetector.dto.FraudRequest;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Map;
 
-public class TransactionVector {
+public record TransactionVector(short[] features) {
 
   private static final int VECTOR_SIZE = 14;
   private static final int SCALE = 10_000;
 
-  private final short[] features;
-
-  public TransactionVector(short[] features) {
+  public TransactionVector {
     if (features == null || features.length != VECTOR_SIZE) {
       throw new IllegalArgumentException("Vector must have exactly " + VECTOR_SIZE + " features");
     }
-    this.features = features;
-  }
-
-  public short[] features() {
-    return features;
   }
 
   public int distanceTo(TransactionVector other) {
@@ -107,12 +101,12 @@ public class TransactionVector {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (!(o instanceof TransactionVector that)) return false;
-    return java.util.Arrays.equals(features, that.features);
+    if (!(o instanceof TransactionVector(short[] features1))) return false;
+    return Arrays.equals(features, features1);
   }
 
   @Override
   public int hashCode() {
-    return java.util.Arrays.hashCode(features);
+    return Arrays.hashCode(features);
   }
 }

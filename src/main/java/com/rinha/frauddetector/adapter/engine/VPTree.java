@@ -1,119 +1,128 @@
 package com.rinha.frauddetector.adapter.engine;
 
 import java.util.*;
-import java.util.function.Function;
 
-public class VPTree<T> {
-  private final Distance<T> distance;
-  private final VPTreeNode<T> root;
+public class VPTree {
 
-  public VPTree(List<T> items, Distance<T> distance) {
-    this.distance = distance;
-    this.root = build(new ArrayList<>(items));
+  private final short[] vectors;
+  private final boolean[] labels;
+  private final int dim;
+
+  private final VPTreeNode root;
+
+  public VPTree(short[] vectors, boolean[] labels, int dim) {
+    this.vectors = vectors;
+    this.labels = labels;
+    this.dim = dim;
+
+    int size = labels.length;
+    int[] indices = new int[size];
+    for (int i = 0; i < size; i++) indices[i] = i;
+
+    this.root = build(indices, 0, size);
   }
 
-  public static class VPTreeNode<T> {
-    T item;
-    float threshold;
-    VPTreeNode<T> left;
-    VPTreeNode<T> right;
+  private VPTreeNode build(int[] indices, int start, int end) {
+    if (start >= end) return null;
 
-    VPTreeNode(T item) {
-      this.item = item;
-    }
-  }
+    VPTreeNode node = new VPTreeNode();
+    int vpIndex = indices[start];
+    node.index = vpIndex;
+    node.point = getVector(vpIndex);
+    node.label = labels[vpIndex];
 
-  public record Neighbor<T>(float distance, T item) {}
+    if (end - start > 1) {
+      int median = (start + end) / 2;
 
-  public List<Neighbor<T>> search(Function<T, Float> queryDistance, int k) {
-    if (k <= 0) return new ArrayList<>();
-    PriorityQueue<Neighbor<T>> pq = new PriorityQueue<>(Math.max(k, 1), comparatorPriorityQueue);
-    searchNode(root, queryDistance, pq, k);
-    List<Neighbor<T>> result = new ArrayList<>(pq);
-    result.sort(Comparator.comparing(n -> n.distance));
-    return result;
-  }
+      for (int i = start + 1; i < end - 1; i++) {
+        int bestIdx = i;
 
-  private final Comparator<Neighbor<T>> comparatorPriorityQueue =
-      (a, b) -> Float.compare(b.distance, a.distance);
+        for (int j = i + 1; j < end; j++) {
+          int distJ = distance(node.point, getVector(indices[j]));
+          int distBest = distance(node.point, getVector(indices[bestIdx]));
 
-  private VPTreeNode<T> build(List<T> items) {
-    if (items == null || items.isEmpty()) {
-      return null;
-    }
+          if (distJ < distBest) {
+            bestIdx = j;
+          }
+        }
 
-    Random random = new Random();
-    int vpIndex = random.nextInt(items.size());
-    T vp = items.remove(vpIndex);
-
-    VPTreeNode<T> node = new VPTreeNode<>(vp);
-
-    if (items.isEmpty()) {
-      return node;
-    }
-
-    List<Float> distances = new ArrayList<>(items.size());
-    for (T item : items) {
-      distances.add(distance.calculate(vp, item));
-    }
-
-    List<Float> sorted = new ArrayList<>(distances);
-    Collections.sort(sorted);
-    float median = sorted.get(sorted.size() / 2);
-    node.threshold = median;
-
-    List<T> inner = new ArrayList<>();
-    List<T> outer = new ArrayList<>();
-    for (int i = 0; i < items.size(); i++) {
-      if (distances.get(i) < median) {
-        inner.add(items.get(i));
-      } else {
-        outer.add(items.get(i));
+        // swap
+        int tmp = indices[i];
+        indices[i] = indices[bestIdx];
+        indices[bestIdx] = tmp;
       }
-    }
 
-    node.left = build(inner);
-    node.right = build(outer);
+      node.threshold = distance(node.point, getVector(indices[median]));
+
+      node.left = build(indices, start + 1, median);
+      node.right = build(indices, median, end);
+    }
 
     return node;
   }
 
-  private void searchNode(
-      VPTreeNode<T> node, Function<T, Float> queryDistance, PriorityQueue<Neighbor<T>> pq, int k) {
+  static int distance(short[] a, short[] b) {
+    int sum = 0;
+    for (int i = 0; i < 14; i++) {
+      int d = a[i] - b[i];
+      sum += d * d;
+    }
+    return sum;
+  }
+
+  private short[] getVector(int index) {
+    short[] v = new short[dim];
+    System.arraycopy(vectors, index * dim, v, 0, dim);
+    return v;
+  }
+
+  public List<Neighbor> search(short[] target, int k) {
+    PriorityQueue<Neighbor> heap =
+            new PriorityQueue<>((a, b) -> b.dist - a.dist);
+
+    search(root, target, k, heap);
+    return new ArrayList<>(heap);
+  }
+
+  private void search(VPTreeNode node, short[] target, int k,
+                      PriorityQueue<Neighbor> heap) {
     if (node == null) return;
 
-    float dist = queryDistance.apply(node.item);
-    Neighbor<T> current = new Neighbor<>(dist, node.item);
+    int dist = distance(target, node.point);
 
-    if (pq.size() < k) {
-      pq.add(current);
-    } else if (pq.peek() != null && dist < pq.peek().distance) {
-      pq.poll();
-      pq.add(current);
+    if (heap.size() < k) {
+      heap.add(new Neighbor(dist, node.label));
+    } else if (dist < heap.peek().dist) {
+      heap.poll();
+      heap.add(new Neighbor(dist, node.label));
     }
 
     if (node.left == null && node.right == null) return;
 
-    float threshold = node.threshold;
-    float maxDist =
-        (pq.size() >= k)
-            ? (pq.peek() != null ? pq.peek().distance : Float.MAX_VALUE)
-            : Float.MAX_VALUE;
-
-    if (dist < threshold) {
-      if (dist < threshold + maxDist) {
-        searchNode(node.left, queryDistance, pq, k);
-      }
-      if (dist >= threshold - maxDist) {
-        searchNode(node.right, queryDistance, pq, k);
+    if (dist < node.threshold) {
+      search(node.left, target, k, heap);
+      if (heap.size() < k || Math.abs(dist - node.threshold) < heap.peek().dist) {
+        search(node.right, target, k, heap);
       }
     } else {
-      if (dist >= threshold - maxDist) {
-        searchNode(node.right, queryDistance, pq, k);
-      }
-      if (dist < threshold + maxDist) {
-        searchNode(node.left, queryDistance, pq, k);
+      search(node.right, target, k, heap);
+      if (heap.size() < k || Math.abs(dist - node.threshold) < heap.peek().dist) {
+        search(node.left, target, k, heap);
       }
     }
+  }
+
+  private static class VPTreeNode {
+    short[] point;
+    boolean label;
+    int index;
+
+    double threshold;
+    VPTreeNode left;
+    VPTreeNode right;
+  }
+
+  public record Neighbor(int dist, boolean label) {
+
   }
 }
