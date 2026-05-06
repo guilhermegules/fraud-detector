@@ -63,7 +63,7 @@ public class VPTree {
 
   static int distance(short[] a, short[] b) {
     int sum = 0;
-    for (int i = 0; i < 14; i++) {
+    for (int i = 0; i < 16; i++) {
       int d = a[i] - b[i];
       sum += d * d;
     }

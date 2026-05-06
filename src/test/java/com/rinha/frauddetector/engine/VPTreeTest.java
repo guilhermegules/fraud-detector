@@ -1,7 +1,6 @@
 package com.rinha.frauddetector.engine;
 
 import com.rinha.frauddetector.adapter.engine.VPTree;
-import com.rinha.frauddetector.adapter.engine.Distance;
 import org.junit.jupiter.api.Test;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -9,210 +8,113 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class VPTreeTest {
 
-  private final Distance<Integer> intDist = (a, b) -> Math.abs(a - b);
-
   @Test
   void buildEmptyTree() {
-    VPTree<Integer> tree = new VPTree<>(new ArrayList<>(), intDist);
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 5), 1);
+    VPTree tree = new VPTree(new short[0], new boolean[0], 16);
+    List<VPTree.Neighbor> neighbors = tree.search(new short[16], 1);
     assertTrue(neighbors.isEmpty());
   }
 
   @Test
   void buildSingleItemTree() {
-    List<Integer> items = Collections.singletonList(5);
-    VPTree<Integer> tree = new VPTree<>(items, intDist);
+    short[] vectors = {0, 0, 0, 0, 0, 0, 0, 0, 0, 5000, 0, 0, 0, 0, 0, 0};
+    boolean[] labels = {false};
+    VPTree tree = new VPTree(vectors, labels, 16);
 
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 5), 1);
+    short[] query = {0, 0, 0, 0, 0, 0, 0, 0, 0, 5000, 0, 0, 0, 0, 0, 0};
+    List<VPTree.Neighbor> neighbors = tree.search(query, 1);
 
     assertEquals(1, neighbors.size());
-    assertEquals(5, neighbors.get(0).item());
+    assertEquals(0, neighbors.get(0).distance());
   }
 
   @Test
   void searchExactMatch() {
-    List<Integer> items = Arrays.asList(1, 2, 3, 4, 5);
-    VPTree<Integer> tree = new VPTree<>(items, intDist);
+    short[] vectors = {
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        2000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
+    boolean[] labels = {false, false, false};
+    VPTree tree = new VPTree(vectors, labels, 16);
 
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 3), 1);
+    short[] query = {1000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    List<VPTree.Neighbor> neighbors = tree.search(query, 1);
 
     assertEquals(1, neighbors.size());
-    assertEquals(3, neighbors.get(0).item());
-    assertEquals(0.0f, neighbors.get(0).distance(), 0.001f);
+    assertEquals(0, neighbors.get(0).distance());
   }
 
   @Test
   void searchK2Neighbors() {
-    List<Integer> items = Arrays.asList(1, 2, 3, 4, 5);
-    VPTree<Integer> tree = new VPTree<>(items, intDist);
+    short[] vectors = {
+        100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        300, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
+    boolean[] labels = {false, false, false};
+    VPTree tree = new VPTree(vectors, labels, 16);
 
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 2.5f), 2);
+    short[] query = {150, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    List<VPTree.Neighbor> neighbors = tree.search(query, 2);
 
     assertEquals(2, neighbors.size());
-    Set<Integer> neighborItems =
-        neighbors.stream().map(VPTree.Neighbor::item).collect(Collectors.toSet());
-    assertTrue(neighborItems.contains(2));
-    assertTrue(neighborItems.contains(3));
+    neighbors.sort(Comparator.comparingInt(VPTree.Neighbor::distance));
+    assertEquals(100, neighbors.get(0).distance());
+    assertEquals(100, neighbors.get(1).distance());
   }
 
   @Test
   void searchVectors() {
-    float[] v1 = {1f, 0f};
-    float[] v2 = {0f, 1f};
-    float[] v3 = {0f, 0f};
-    List<float[]> vectors = Arrays.asList(v1, v2, v3);
+    short[] vectors = {
+        5000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 5000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
+    boolean[] labels = {false, false, false};
+    VPTree tree = new VPTree(vectors, labels, 16);
 
-    Distance<float[]> vecDist =
-        (a, b) -> {
-          float sum = 0;
-          for (int i = 0; i < a.length; i++) {
-            float diff = a[i] - b[i];
-            sum += diff * diff;
-          }
-          return sum;
-        };
-
-    VPTree<float[]> tree = new VPTree<>(vectors, vecDist);
-
-    List<VPTree.Neighbor<float[]>> neighbors =
-        tree.search(
-            item -> {
-              float sum = 0;
-                for (float v : item) {
-                    float diff = v - 0.5f;
-                    sum += diff * diff;
-                }
-              return sum;
-            },
-            2);
+    short[] query = {2500, 2500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    List<VPTree.Neighbor> neighbors = tree.search(query, 2);
 
     assertEquals(2, neighbors.size());
-    neighbors.sort(Comparator.comparing(n -> n.distance()));
-    assertEquals(0.5f, neighbors.get(0).distance(), 0.001f);
-    assertEquals(0.5f, neighbors.get(1).distance(), 0.001f);
+    neighbors.sort(Comparator.comparingInt(VPTree.Neighbor::distance));
+    assertEquals(12500000, neighbors.get(0).distance());
+    assertEquals(12500000, neighbors.get(1).distance());
   }
 
   @Test
   void exactSearchGuarantee() {
-    List<Integer> items = new ArrayList<>();
-    for (int i = 0; i < 100; i++) items.add(i);
+    short[] vectors = new short[100 * 16];
+    boolean[] labels = new boolean[100];
+    for (int i = 0; i < 100; i++) {
+      vectors[i * 16] = (short) (i * 100);
+      labels[i] = i % 2 == 0;
+    }
+    VPTree tree = new VPTree(vectors, labels, 16);
 
-    VPTree<Integer> tree = new VPTree<>(items, intDist);
-
-      List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 50), 5);
+    short[] query = {2500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    List<VPTree.Neighbor> neighbors = tree.search(query, 5);
 
     assertEquals(5, neighbors.size());
-    Set<Integer> actual = neighbors.stream().map(VPTree.Neighbor::item).collect(Collectors.toSet());
-    assertTrue(actual.contains(50));
-    assertTrue(actual.contains(49));
-    assertTrue(actual.contains(51));
-    assertTrue(actual.contains(48));
-    assertTrue(actual.contains(52));
-  }
-
-  @Test
-  void searchEmptyTree() {
-    VPTree<Integer> tree = new VPTree<>(new ArrayList<>(), intDist);
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 5), 3);
-    assertTrue(neighbors.isEmpty());
-  }
-
-  @Test
-  void searchSingleItemTree() {
-    List<Integer> items = Collections.singletonList(42);
-    VPTree<Integer> tree = new VPTree<>(items, intDist);
-
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 100), 1);
-
-    assertEquals(1, neighbors.size());
-    assertEquals(42, neighbors.get(0).item());
-    assertEquals(58.0f, neighbors.get(0).distance(), 0.001f);
-  }
-
-  @Test
-  void searchWithDuplicates() {
-    List<Integer> items = Arrays.asList(1, 1, 2, 2, 3, 3);
-    VPTree<Integer> tree = new VPTree<>(items, intDist);
-
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 2), 2);
-
-    assertEquals(2, neighbors.size());
-    neighbors.sort(Comparator.comparing(n -> n.distance()));
-    assertEquals(2, neighbors.get(0).item());
-    assertEquals(0.0f, neighbors.get(0).distance(), 0.001f);
-  }
-
-  @Test
-  void searchKZero() {
-    List<Integer> items = Arrays.asList(1, 2, 3, 4, 5);
-    VPTree<Integer> tree = new VPTree<>(items, intDist);
-
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 3), 0);
-
-    assertTrue(neighbors.isEmpty());
-  }
-
-  @Test
-  void neighborRecord() {
-    VPTree.Neighbor<Integer> neighbor = new VPTree.Neighbor<>(5.0f, 10);
-    assertEquals(5.0f, neighbor.distance(), 0.001f);
-    assertEquals(10, neighbor.item());
-  }
-
-  @Test
-  void distanceInterface() {
-    Distance<String> strDist = (a, b) -> Math.abs(a.length() - b.length());
-    List<String> items = Arrays.asList("a", "bb", "ccc", "dddd");
-    VPTree<String> tree = new VPTree<>(items, strDist);
-
-    List<VPTree.Neighbor<String>> neighbors = tree.search(item -> (float) Math.abs(item.length() - 2), 2);
-
-    assertEquals(2, neighbors.size());
-    assertTrue(neighbors.stream().anyMatch(n -> n.item().equals("bb")));
-    assertTrue(neighbors.stream().anyMatch(n -> n.item().equals("a") || n.item().equals("ccc")));
-  }
-
-  @Test
-  void searchAllItemsWithLargeK() {
-    List<Integer> items = Arrays.asList(5, 10, 15, 20);
-    VPTree<Integer> tree = new VPTree<>(items, intDist);
-
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 12), 10);
-
-    assertEquals(4, neighbors.size());
-    neighbors.sort(Comparator.comparing(n -> n.distance()));
-    assertEquals(10, neighbors.get(0).item());
-    assertEquals(2.0f, neighbors.get(0).distance(), 0.001f);
-    assertEquals(15, neighbors.get(1).item());
-    assertEquals(3.0f, neighbors.get(1).distance(), 0.001f);
-    assertEquals(5, neighbors.get(2).item());
-    assertEquals(7.0f, neighbors.get(2).distance(), 0.001f);
-  }
-
-  @Test
-  void searchKLargerThanItems() {
-    List<Integer> items = Arrays.asList(10, 20, 30);
-    VPTree<Integer> tree = new VPTree<>(items, intDist);
-
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 25), 5);
-
-    assertEquals(3, neighbors.size());
-    neighbors.sort(Comparator.comparing(n -> n.distance()));
-    assertEquals(5.0f, neighbors.get(0).distance(), 0.001f);
-    assertEquals(5.0f, neighbors.get(1).distance(), 0.001f);
-    assertEquals(15.0f, neighbors.get(2).distance(), 0.001f);
-  }
-
-  @Test
-  void searchReturnsSortedByDistance() {
-    List<Integer> items = Arrays.asList(1, 5, 10, 20, 50);
-    VPTree<Integer> tree = new VPTree<>(items, intDist);
-
-    List<VPTree.Neighbor<Integer>> neighbors = tree.search(item -> (float) Math.abs(item - 11), 3);
-
-    assertEquals(3, neighbors.size());
+    neighbors.sort(Comparator.comparingInt(VPTree.Neighbor::distance));
     assertTrue(neighbors.get(0).distance() <= neighbors.get(1).distance());
-    assertTrue(neighbors.get(1).distance() <= neighbors.get(2).distance());
-    assertEquals(10, neighbors.get(0).item());
+  }
+
+  @Test
+  void returnsFraudLabels() {
+    short[] vectors = {
+        1000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        2000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
+    boolean[] labels = {true, false};
+    VPTree tree = new VPTree(vectors, labels, 16);
+
+    short[] query = {1000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    List<VPTree.Neighbor> neighbors = tree.search(query, 2);
+
+    assertEquals(2, neighbors.size());
+    long fraudCount = neighbors.stream().filter(VPTree.Neighbor::label).count();
+    assertEquals(1, fraudCount);
   }
 }

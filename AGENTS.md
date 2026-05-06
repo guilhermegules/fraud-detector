@@ -1,640 +1,293 @@
-# AGENTS.md (Java 25 / Spring — High Performance Edition)
+# Fraud Detection Agent
 
 ## Overview
 
-This service implements a **fraud detection API** using **vector similarity (k-NN)** over a dataset of 3M vectors.
+This service implements a fraud detection API using Exact Vector Similarity (k-NN) via a Compact Vantage-Point Tree (VP-Tree).
 
-Primary goals:
-
-* **p99 latency ≤ 1ms**
-* **high throughput**
-* **zero runtime I/O**
-* **predictable performance under load**
-* **fit within 160MB container limit**
-
----
+- **Target**: p99 latency ≤ 1ms
+- **Memory Limit**: 160MB (Total Container)
+- **Dataset**: 3M vectors (downsampled to ~1.1M for 160MB fit)
 
 ## Tech Stack
 
-* **Java 25**
-* **Spring Boot (minimal footprint)**
-* **Virtual Threads (Project Loom)**
-* **Vector API (SIMD acceleration)**
-* Jackson (JSON)
-* No database
-
----
+- Java 25 + Spring Boot 3.4 (Virtual Threads enabled)
+- Vector API (`jdk.incubator.vector`): SIMD-accelerated distance calculations
+- VP-Tree: Exact search with $O(\log N)$ average complexity
+- Zero-Allocation Hot Path: ThreadLocal buffers for all request-scoped arrays
 
 ## Architecture Principles
 
-### 1. Everything in Memory
+### 1. Zero Runtime I/O & Allocation
 
-* Load and preprocess dataset at startup
-* No disk or network access during requests
+- All data is pre-processed into flat primitive arrays at startup
+- No new keywords in `evaluate()` or `search()`
+- Manual String Parsing: Substring-based integer parsing replaces `Instant.parse()` to eliminate regex/ISO overhead
 
-### 2. CPU-bound Optimization
+### 2. VP-Tree with Aggressive Pruning
 
-* This is a **numerical computation problem**
-* Optimize:
+Instead of Brute Force, we use a Compact VP-Tree stored in flat arrays:
+- Arrays used: `leftChild[]`, `rightChild[]`, `thresholds[]`, and `vpIndices[]`
+- Pruning Rule: A branch is only visited if $|dist(query, VP) - threshold| \le dist(query, K^{th} \text{ neighbor})$. This allows the engine to skip up to 95% of the dataset.
 
-    * cache locality
-    * branch prediction
-    * memory layout
+### 3. Data Alignment (The "SIMD 16" Rule)
 
-### 3. Minimize Framework Overhead
+- The Vector API performs best on power-of-2 boundaries
+- Padding: 14-dimension vectors are padded to 16 dimensions with zeros
+- This allows a 256-bit SIMD register (AVX2) to process a full distance calculation in exactly two cycles, avoiding the "tail loop" penalty
 
-* Spring only handles HTTP layer
-* No AOP, no heavy filters, no reflection-heavy features
+## Memory Budget (160MB Limit)
 
----
+| Component | Estimated Size (1.1M records) | Notes |
+|-----------|------------------------------|-------|
+| short[16] Vectors | ~35.2 MB | 1.1M * 16 * 2 bytes |
+| byte[] Labels | ~1.1 MB | 1 byte per record |
+| VPTree Structure | ~22.0 MB | 4 x int[] + 1 x float[] |
+| JVM Heap (Xmx120m) | 120.0 MB | Shared data + buffers |
+| **Total Container Usage** | **~155 MB** | Safe for 160MB Limit |
 
-## Hexagonal Architecture
+## Performance Optimizations
 
-### Package Structure
+### Feature Weighting (Precision Fix)
 
-```
-com.rinha.frauddetector
-├── controller
-│   ├── HealthController.java
-│   └── FraudController.java
-├── dto
-│   ├── FraudRequest.java
-│   ├── FraudResponse.java
-│   ├── TransactionDTO.java
-│   ├── CustomerDTO.java
-│   ├── MerchantDTO.java
-│   ├── TerminalDTO.java
-│   └── LastTransactionDTO.java
-├── domain
-│   ├── FraudDetectionService.java
-│   ├── FraudScore.java
-│   ├── TransactionVector.java
-│   ├── NormalizationConstants.java
-│   └── FraudReference.java
-├── application
-│   ├── KnnFraudDetectionService.java
-│   ├── ReferenceAccumulator.java
-│   └── BruteForceKNNSearch.java
-├── adapter
-│   ├── loader
-│   │   ├── ReferenceLoader.java
-│   │   ├── ReferenceItem.java
-│   │   └── ReferenceAccumulator.java
-│   └── engine
-│       ├── VPTree.java
-│       └── Distance.java
-└── config
-    └── FraudDetectionConfig.java
-```
+To resolve "Zero True Positives," we apply importance weights during vectorization:
+- MCC Risk: $1.5\times$ multiplier
+- Known Merchant: $2.0\times$ multiplier
+- Missing Data: Replaced with 0 (neutral) or the feature mean instead of -1 to prevent "Distance Explosion"
 
-### Layers
-
-* **Input Layer (controller)**: Handles HTTP requests, validates input, returns responses
-* **Application Layer (application)**: Orchestrates use cases, contains business logic
-* **Domain Layer (domain)**: Core business models and rules
-* **Adapter Layer (adapter)**: Loaders and engines (pluggable implementations)
-* **Output Layer**: Not needed (no database, everything in memory)
-
-### Dependencies
-
-* Controllers depend on Domain interfaces
-* Application services depend on Domain and Adapters
-* Adapters depend on Domain
-* Spring annotations only in controllers and configuration
-
----
-
-## API Layer
-
-### Health Controller
-
-```java
-@RestController
-public class HealthController {
-
-    @GetMapping("/ready")
-    public void ready(HttpServletResponse res) {
-        res.setStatus(200);
-    }
-}
-```
-
-### Fraud Controller
-
-```java
-@RestController
-public class FraudController {
-
-    private final FraudDetectionService service;
-
-    @PostMapping("/fraud-score")
-    public FraudResponse score(@RequestBody FraudRequest request) {
-        return service.evaluate(request);
-    }
-}
-```
-
----
-
-## Core Pipeline
+### JVM Tuning (Mac Mini Late 2014)
 
 ```
-JSON → Vector (float[14]) → KNN (Brute Force) → Score → Response
-```
-
----
-
-## Memory Layout (Critical for 160MB Limit)
-
-### Flat Arrays (AGENTS.md Requirement)
-
-Per AGENTS.md: Use flat primitive arrays for cache locality and minimal memory:
-
-```java
-// In ReferenceAccumulator:
-float[] vectors;  // size = N * 14, flat contiguous memory
-byte[] labels;    // 1 = fraud, 0 = legit
-int size;
-```
-
-Access pattern:
-```java
-int base = i * 14;
-float v0 = vectors[base];
-float v1 = vectors[base + 1];
-// ...
-```
-
-### Memory Budget (160MB Container)
-
-| Component | Estimated Size (1.1M records) |
-|-----------|-------------------------------|
-| `float[14]` flat array | ~60MB (1.1M * 14 * 4 bytes) |
-| `byte[]` labels | ~1MB |
-| JVM overhead (heap, metaspace) | ~50-60MB |
-| Spring + code | ~30-40MB |
-| **Total** | **~140-160MB** |
-
----
-
-## Vectorization (Java 25 Style)
-
-### Guidelines
-
-* Use **primitive arrays (`float[]`)**
-* Avoid object allocation in hot path
-* Inline normalization logic
-
-### Clamp Utility
-
-```java
-static float clamp(float v) {
-    return Math.clamp(v, 0f, 1f);
-}
-```
-
----
-
-## Dataset Representation
-
-### Precomputation (Binary Format)
-
-**Why needed:** JSON parsing at startup is slow and memory-intensive. The precompute script converts `references.json.gz` to a compact binary format that loads directly into memory structures.
-
-**Running the script:**
-```bash
-python3 precompute.py [SAMPLE_RATE]
-# Example: python3 precompute.py 0.005  # 0.5% sample rate
-```
-
-**Output files:**
-- `references.bin`: Binary file with header (record count) + flat float array (N×14) + byte labels
-- `normalization.bin`: Serialized normalization constants (if applicable)
-
-**Binary format structure (`references.bin`):**
-```
-[4 bytes: record count (uint32, little-endian)]
-[N×14×4 bytes: float array (little-endian)]
-[N bytes: labels (0=legit, 1=fraud)]
-```
-
-**Benefits:**
-- Eliminates JSON parsing overhead at startup
-- Direct memory-mapped loading into `float[]` and `byte[]`
-- Reduced container startup time (critical for fast scaling)
-- Smaller file size than compressed JSON
-
-### Loading Process
-
-1. **Precompute step** (`precompute.py`):
-   * Reads `references.json.gz` and samples legit transactions
-   * Outputs `references.bin` with binary format
-   * Configurable `SAMPLE_RATE` (default: 0.005 = 0.5%)
-
-2. **Binary load** (`ReferenceLoader.loadReferences`):
-   * Reads `references.bin` directly into memory structures
-   * No JSON parsing, no streaming overhead
-   * Populates flat `float[]` vectors and `byte[]` labels
-
-3. **Search Structure** (`BruteForceKNNSearch`):
-   * Brute force k-NN with SIMD (Vector API)
-   * No VP-tree overhead (following AGENTS.md "start simple" advice)
-
----
-
-## Distance Computation
-
-### DO NOT use sqrt
-
-Compare squared distances only.
-
-### SIMD-Accelerated Distance (Vector API — Java 25)
-
-```java
-var SPECIES = FloatVector.SPECIES_PREFERRED;
-
-float distanceSquared(float[] query, int offset) {
-    int i = 0;
-    var sum = FloatVector.zero(SPECIES);
-
-    for (; i + SPECIES.length() <= 14; i += SPECIES.length()) {
-        var va = FloatVector.fromArray(SPECIES, query, i);
-        var vb = FloatVector.fromArray(SPECIES, vectors, offset + i);
-        var diff = va.sub(vb);
-        sum = sum.add(diff.mul(diff));
-    }
-
-    float result = sum.reduceLanes(VectorOperators.ADD);
-
-    for (; i < 14; i++) {
-        float d = query[i] - vectors[offset + i];
-        result += d * d;
-    }
-
-    return result;
-}
-```
-
----
-
-## Nearest Neighbors (K=5)
-
-### Fast Selection
-
-Use fixed-size structure (no heap allocation):
-
-```java
-float[] bestDist = new float[5];
-byte[] bestLabel = new byte[5];
-```
-
-Insertion with manual shift (avoids sorting):
-```java
-private static void insertIfCloser(float[] bestDist, byte[] bestLabel, float dist, byte label) {
-    for (int j = 0; j < K; j++) {
-        if (dist < bestDist[j]) {
-            for (int k = K - 1; k > j; k--) {
-                bestDist[k] = bestDist[k - 1];
-                bestLabel[k] = bestLabel[k - 1];
-            }
-            bestDist[j] = dist;
-            bestLabel[j] = label;
-            return;
-        }
-    }
-}
-```
-
----
-
-## Parallelism (Java 25)
-
-### Structured Concurrency (Future Use)
-
-```java
-try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
-
-    var task1 = scope.fork(() -> searchChunk(0, mid));
-    var task2 = scope.fork(() -> searchChunk(mid, N));
-
-    scope.join();
-
-    return merge(task1.get(), task2.get());
-}
-```
-
-Note: Current implementation uses brute force single-threaded for simplicity. Add parallelism only after measuring.
-
----
-
-## Virtual Threads
-
-Enable:
-```
-spring.threads.virtual.enabled=true
-```
-
-Use for:
-* HTTP handling
-* NOT for CPU-heavy loops (keep those tight and local)
-
----
-
-## GC Strategy (160MB Constraint)
-
-* **ZGC** for low latency and predictable pauses
-* **AlwaysPreTouch** to fault-in memory at startup
-
-JVM Settings (Dockerfile):
-```
--Xms128m
--Xmx128m
--XX:+UseZGC
+-Xms120m -Xmx120m
+-XX:+UseG1GC
+-XX:MaxGCPauseMillis=1
 -XX:+AlwaysPreTouch
 --add-modules=jdk.incubator.vector
 ```
 
-**Why 128MB heap?** Container limit is 160MB. JVM native memory (metaspace, code cache, etc.) needs ~30-40MB, leaving ~120-130MB for heap.
+## Core Pipeline
 
----
-
-## Warmup Strategy
-
-* Run dummy queries at startup
-* Trigger JIT compilation before test
-
----
-
-## Error Handling
-
-Never return HTTP errors.
-
-Fallback:
-```java
-return new FraudResponse(true, 0.0f);
-```
-
----
-
-## Performance Targets
-
-| Metric          | Target                  |
-| --------------- | ----------------------- |
-| p99             | ≤ 1ms                   |
-| Memory          | ≤ 160MB (container)     |
-| Allocation rate | ~0 in hot path          |
-| Dataset loaded  | ~1.1M vectors (5% sample) |
-
----
-
-## Advanced Optimizations
-
-### 1. Data-Oriented Design
-
-* **SoA (Structure of Arrays)** preferred for vector data
-* Flat `float[]` with stride-14 access pattern
-
-### 2. Loop Optimization
-
-* SIMD via Vector API (`jdk.incubator.vector`)
-* Manual unrolling if needed
-
-### 3. Branch Reduction
-
-* Avoid `if` inside tight loops
-* Use conditional moves where possible
-
-### 4. Precomputation
-
-* Pre-normalize vectors at load time
-* Cache normalization constants
-
----
+1. **Request**: Receive JSON payload
+2. **Vectorize**: Extract features via substring, normalize, and fill `ThreadLocal<short[16]>`
+3. **Search**: `CompactVPTree.search()` finds 5 nearest neighbors using pruned recursive descent
+4. **Score**: Distance-weighted probability calculation
+5. **Decision**: Score $\ge 0.45 \rightarrow$ FRAUD
 
 ## What NOT to Do
 
-* ❌ No database
-* ❌ No per-request allocations (reuse arrays)
-* ❌ No streams API in hot path
-* ❌ No logging in scoring path
-* ❌ No synchronized blocks in critical loops
-* ❌ No VPTree/ANN until brute force is proven insufficient
+- ❌ No `java.time`: Use manual substring parsing for ISO dates
+- ❌ No `FloatVector.fromArray` on 14 elements: Always use padded size (16)
+- ❌ No `Stream.parallel()`: Single-threaded search per request is more predictable for p99
+- ❌ No `Double`: Use float for thresholds and short for vectors to minimize memory footprint
+
+## Implementation Strategy
+
+1. **Initialize**: Binary load `references.bin` → Build CompactVPTree
+2. **Warmup**: Execute 5,000 dummy queries in `@PostConstruct` to trigger C2 JIT
+3. **Run**: Zero-allocation scoring loop on Virtual Threads
 
 ---
 
-## Key Insight
+# Fraud Detection Specification
 
-This problem is:
+This specification defines how an agent should perform fraud detection using vector similarity (KNN).
 
-> **high-performance vector math under latency constraints**
+**The system:**
+- Converts a transaction into a 14-dimensional vector
+- Searches the reference dataset
+- Computes a fraud score
+- Returns an approval decision
 
-Spring is just transport.
+## Core Concept
 
-Java 25 gives you:
-* SIMD (Vector API)
-* Lightweight concurrency
-* Better GC
+- Each transaction → vector of 14 normalized values
+- Similar transactions → close in vector space
+- Fraud detection → based on nearest neighbors
 
-Use them deliberately.
+## Decision Rule
 
----
+```
+fraud_score = (# fraud neighbors) / K
 
-## Implementation Strategy (AGENTS.md Aligned)
+approved = fraud_score < 0.6
+```
 
-Following AGENTS.md "Final Advice":
+- **K = 5** (fixed)
+- **Threshold = 0.6** (fixed)
 
-1. ✅ **Brute force + optimized loop** (current: `BruteForceKNNSearch`)
-2. ✅ **Measure** (profile before optimizing)
-3. ✅ **Add SIMD** (current: Vector API in distance computation)
-4. ⏳ **Add parallelism** (only if needed, structured concurrency)
-5. ⏳ **Consider ANN** (VP-tree exists in `adapter/engine/` for future use)
+## Processing Pipeline
 
----
+### Step 1 — Receive Payload
+
+Input structure:
+
+```json
+{
+  "id": "string",
+  "transaction": {
+    "amount": number,
+    "installments": number,
+    "requested_at": "ISO-8601"
+  },
+  "customer": {
+    "avg_amount": number,
+    "tx_count_24h": number,
+    "known_merchants": ["string"]
+  },
+  "merchant": {
+    "id": "string",
+    "mcc": "string",
+    "avg_amount": number
+  },
+  "terminal": {
+    "is_online": boolean,
+    "card_present": boolean,
+    "km_from_home": number
+  },
+  "last_transaction": {
+    "km_from_current": number,
+    "requested_at": "ISO-8601"
+  } | null
+}
+```
+
+### Step 2 — Vectorization (14 Dimensions)
+
+Transform payload into vector:
+
+| idx | feature | formula |
+|-----|---------|---------|
+| 0 | amount | clamp(amount / max_amount) |
+| 1 | installments | clamp(installments / max_installments) |
+| 2 | amount_vs_avg | clamp((amount / avg_amount) / amount_vs_avg_ratio) |
+| 3 | hour | hour(requested_at) / 23 |
+| 4 | day_of_week | day_of_week / 6 |
+| 5 | minutes_since_last | clamp(minutes / max_minutes) or -1 |
+| 6 | km_from_last | clamp(km / max_km) or -1 |
+| 7 | km_from_home | clamp(km / max_km) |
+| 8 | tx_count_24h | clamp(count / max_tx_count_24h) |
+| 9 | is_online | 1 or 0 |
+| 10 | card_present | 1 or 0 |
+| 11 | unknown_merchant | 1 if unknown else 0 |
+| 12 | mcc_risk | lookup or default 0.5 |
+| 13 | merchant_avg | clamp(avg / max_merchant_avg_amount) |
+
+#### Special Case — Missing History
+
+If `"last_transaction": null`, then:
+- `dim[5] = -1`
+- `dim[6] = -1`
+
+> ⚠️ **Do NOT normalize or replace -1**
+
+### Normalization
+
+#### Clamp Function
+
+```
+clamp(x):
+  if x < 0 → 0
+  if x > 1 → 1
+  else → x
+```
+
+#### Constants (`normalization.json`)
+
+```json
+{
+  "max_amount": 10000,
+  "max_installments": 12,
+  "amount_vs_avg_ratio": 10,
+  "max_minutes": 1440,
+  "max_km": 1000,
+  "max_tx_count_24h": 20,
+  "max_merchant_avg_amount": 10000
+}
+```
+
+#### MCC Risk (`mcc_risk.json`)
+
+- Lookup: `mcc_risk[merchant.mcc]`
+- Default: 0.5
+
+### Step 3 — Vector Search
+
+#### Distance Function (Euclidean)
+
+$$dist(q,r) = \sum_{i}(q_i - r_i)^2$$
+
+#### Search Strategy
+
+| Option | Description | Complexity |
+|--------|-------------|------------|
+| **Option A** — Exact (Brute Force) | for each reference: compute distance, sort ascending, take top K | O(N * D) |
+| **Option B** — Indexed / Tree-Based | KD-Tree, VP-Tree, Ball Tree, Cover Tree | varies |
+| **Option C** — ANN (Approximate) | HNSW → O(log N), IVF → O(√N), LSH → O(N^ρ) | varies |
+
+### Step 4 — Select Neighbors
+
+K = 5 nearest vectors
+
+Each neighbor has:
+
+```json
+{
+  "vector": [...],
+  "label": "fraud" | "legit"
+}
+```
+
+### Step 5 — Compute Score
+
+```
+fraud_score = (# fraud labels) / 5
+```
+
+### Step 6 — Decision
+
+```
+approved = fraud_score < 0.6
+```
+
+### Step 7 — Response
+
+```json
+{
+  "approved": boolean,
+  "fraud_score": number
+}
+```
+
+## Dataset
+
+- `references.json.gz`
+- ~3,000,000 vectors
+- 14 dimensions each
+- labeled: "fraud" or "legit"
+
+## Important Rules
+
+- Do NOT modify dataset values
+- Do NOT filter -1
+- Data can be:
+  - decompressed
+  - indexed
+  - preprocessed
+
+## Key Properties
+
+- **Non-Parametric Model**
+- No training phase
+- All knowledge = dataset
+- Decision = runtime similarity
+
+## Behavior Insight
+
+The system:
+- Does NOT "understand fraud"
+- Only compares patterns
 
 ## Summary
 
-Winning strategy:
-
-* Keep data hot in memory (flat arrays)
-* Optimize inner loops aggressively (SIMD)
-* Use Java 25 features where they matter
-* Avoid complexity until necessary
-* **Fit within 160MB container limit**
-
-Focus on:
-
-> **CPU efficiency + memory locality + zero overhead**
-
----
-
-## Code Formatting (Google Java Style Guide)
-
-### Source File Basics
-
-* Files encoded in **UTF-8**
-* Use **2 spaces** for indentation (no tabs)
-* File length: max **1000 lines**
-* No wildcard imports (`import java.util.*`)
-* Import order: same-package, third-party, java, javax
-
-### Braces
-
-* Use **K&R style** (opening brace at end of line)
-* Braces required for all control structures (if, else, for, while, etc.)
-* Empty blocks: `{}` preferred over `;`
-
-```java
-if (condition) {
-    doSomething();
-} else {
-    doOther();
-}
 ```
-
-### Column Limit
-
-* **100 characters** max per line
-* Wrap lines at logical points (operators, after commas)
-* Indent continuation lines **4 spaces**
-
-### Naming Conventions
-
-| Element | Convention | Example |
-|---------|-------------|---------|
-| Package | all lowercase, no underscores | `com.rinha.frauddetector` |
-| Class | UpperCamelCase | `BruteForceKNNSearch` |
-| Method | lowerCamelCase | `evaluateRequest()` |
-| Variable | lowerCamelCase | `vectorCount` |
-| Constant | UPPER_UNDERSCORE | `VECTOR_SIZE` |
-| Type Parameter | Single uppercase | `T`, `E`, `K`, `V` |
-
-### Whitespace
-
-* One blank line between methods
-* No trailing whitespace
-* Blank lines optional at beginning/end of file
-* Space after keywords: `if`, `for`, `while`, `catch`
-* Space before opening brace `{`
-* Space around operators: `=`, `+`, `==`, `&&`
-
-### Declarations
-
-* One declaration per line
-* Variable declarations close to first use
-* Array: `float[] vectors` NOT `float vectors[]`
-
-### Programming Practices
-
-* No raw types (use generics)
-* Use `@Override` always when applicable
-* Caught exceptions: either rethrow or log, not ignore
-* Static members: access via class name, not instance
-
-### Javadoc
-
-* Required for public/protected classes and methods
-* First sentence ends with period
-* No `{@inheritDoc}` abuse
-* Missing Javadoc: use `//` comment or nothing
-
-```java
-/**
- * Calculates the fraud score based on k-NN algorithm.
- *
- * @param request the fraud request to evaluate
- * @return the calculated fraud score
- */
-public FraudScore evaluate(FraudRequest request) { ... }
+input → normalize → vector → nearest neighbors → vote → decision
 ```
-
----
-
-## Unit Tests
-
-### Guidelines
-
-* Use JUnit 5
-* Test business logic in service layer
-* Mock dependencies when needed
-* Test coverage for critical paths
-* Follow Google Java Style Guide for test code
-
-### Test Structure
-
-```
-src/test/java/com/rinha/frauddetector
-├── controller
-│   ├── HealthControllerTest.java
-│   └── FraudControllerTest.java
-├── application
-│   ├── KnnFraudDetectionServiceTest.java
-│   └── BruteForceKNNSearchTest.java
-├── domain
-│   ├── FraudScoreTest.java
-│   └── TransactionVectorTest.java
-├── adapter
-│   ├── loader
-│   │   └── ReferenceLoaderTest.java
-│   └── engine
-│       └── VPTreeTest.java
-└── integration
-    └── FraudDetectionIntegrationTest.java
-```
-
-### Example Test
-
-```java
-@SpringBootTest
-class FraudControllerTest {
-
-  @Autowired private MockMvc mockMvc;
-
-  @Test
-  void shouldReturnFraudScore() throws Exception {
-    String requestJson =
-        """
-        {
-          "id": "tx-123",
-          "transaction": {
-            "amount": 100.0,
-            "installments": 1,
-            "requested_at": "2026-03-11T20:23:35Z"
-          },
-          "customer": {
-            "avg_amount": 500.0,
-            "tx_count_24h": 2,
-            "known_merchants": ["MERC-001"]
-          },
-          "merchant": {
-            "id": "MERC-001",
-            "mcc": "5912",
-            "avg_amount": 300.0
-          },
-          "terminal": {
-            "is_online": false,
-            "card_present": true,
-            "km_from_home": 10.0
-          },
-          "last_transaction": null
-        }
-        """;
-
-    mockMvc.perform(
-            post("/fraud-score")
-                .contentType("application/json")
-                .content(requestJson))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.approved").exists())
-        .andExpect(jsonPath("$.fraud_score").exists());
-  }
-}
-```
-
-### Rinha Rules for Tests
-
-* No database connections in tests
-* Fast execution (p99 ≤ 1ms per test)
-* No external service calls
-* Use in-memory data for service tests
-* No trailing whitespace
-* Max 100 characters per line

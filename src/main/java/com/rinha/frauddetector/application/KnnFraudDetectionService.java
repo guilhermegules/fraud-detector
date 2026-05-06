@@ -39,13 +39,13 @@ public class KnnFraudDetectionService implements FraudDetectionService {
       int size = end - start;
       if (size == 0) continue;
 
-      short[] vectors = new short[size * 14];
+      short[] vectors = new short[size * 16];
       boolean[] labels = new boolean[size];
 
       System.arraycopy(ref.vectors(), start * 14, vectors, 0, size * 14);
       System.arraycopy(ref.labels(), start, labels, 0, size);
 
-      trees[b] = new VPTree(vectors, labels, 14);
+      trees[b] = new VPTree(vectors, labels, 16);
     }
   }
 
@@ -77,21 +77,14 @@ public class KnnFraudDetectionService implements FraudDetectionService {
 
     List<VPTree.Neighbor> neighbors = all.subList(0, Math.min(K, all.size()));
 
-    float weightedFraud = 0f;
-    float totalWeight = 0f;
-
+    int fraudCount = 0;
     for (var n : neighbors) {
-      // avoid division by zero
-      float w = 1f / (n.distance() + 1e-6f);
-
       if (n.label()) {
-        weightedFraud += w;
+        fraudCount++;
       }
-
-      totalWeight += w;
     }
 
-    float score = weightedFraud / totalWeight;
+    float score = (float) fraudCount / K;
 
     return FraudScore.fromScore(score);
   }
