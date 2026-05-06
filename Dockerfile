@@ -19,8 +19,11 @@ WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
 
 ENV JAVA_OPTS="\
--Xms128m \
--Xmx128m \
+-Xms140m \
+-Xmx140m \
+-XX:+UseZGC \
+-XX:+AlwaysPreTouch \
+--add-modules=jdk.incubator.vector \
 "
 
 EXPOSE 8080

@@ -7,29 +7,47 @@ import java.time.ZoneOffset;
 import java.time.Duration;
 import java.util.Map;
 
-public record TransactionVector(float[] features) {
+public class TransactionVector {
 
   private static final int VECTOR_SIZE = 14;
+  private static final int SCALE = 10_000;
 
-  public TransactionVector {
+  private final short[] features;
+
+  public TransactionVector(short[] features) {
     if (features == null || features.length != VECTOR_SIZE) {
       throw new IllegalArgumentException("Vector must have exactly " + VECTOR_SIZE + " features");
     }
+    this.features = features;
   }
 
-  public float distanceTo(TransactionVector other) {
-    float sum = 0;
+  public short[] features() {
+    return features;
+  }
+
+  public int distanceTo(TransactionVector other) {
+    int sum = 0;
+
     for (int i = 0; i < VECTOR_SIZE; i++) {
-      float diff = this.features[i] - other.features[i];
+      int diff = this.features[i] - other.features[i];
       sum += diff * diff;
     }
+
     return sum;
   }
 
   public static TransactionVector fromRequest(
-      FraudRequest request,
-      NormalizationConstants constants,
-      Map<String, Float> mccRiskMap) {
+          FraudRequest request,
+          NormalizationConstants constants,
+          Map<String, Float> mccRiskMap) {
+
+    return new TransactionVector(toArray(request, constants, mccRiskMap));
+  }
+
+  public static short[] toArray(
+          FraudRequest request,
+          NormalizationConstants constants,
+          Map<String, Float> mccRiskMap) {
 
     final var transaction = request.transaction();
     final var customer = request.customer();
@@ -41,68 +59,60 @@ public record TransactionVector(float[] features) {
     final int hour = instant.atZone(ZoneOffset.UTC).getHour();
     final int dayOfWeek = instant.atZone(ZoneOffset.UTC).getDayOfWeek().getValue() - 1;
 
-    final float amountRatio = customer.avg_amount() > 0
-        ? (transaction.amount() / customer.avg_amount())
-        : 0.0f;
+    float amountRatio = customer.avg_amount() > 0
+            ? (transaction.amount() / customer.avg_amount())
+            : 0f;
 
-    float minutesSinceLastTx = 0;
+    float minutesSinceLastTx = 0f;
     if (lastTransaction != null) {
       final Instant lastInstant = Instant.parse(lastTransaction.timestamp());
       minutesSinceLastTx = Duration.between(lastInstant, instant).toMinutes();
     }
 
-    float[] v = new float[VECTOR_SIZE];
+    short[] v = new short[VECTOR_SIZE];
 
-    // 0: amount
-    v[0] = clamp(transaction.amount() / constants.max_amount());
+    v[0] = norm(transaction.amount() / constants.max_amount());
+    v[1] = norm(transaction.installments() / constants.max_installments());
+    v[2] = norm(amountRatio / constants.amount_vs_avg_ratio());
+    v[3] = norm(hour / 23.0f);
+    v[4] = norm(dayOfWeek / 6.0f);
 
-    // 1: installments
-    v[1] = clamp(transaction.installments() / constants.max_installments());
-
-    // 2: amount_vs_avg
-    v[2] = clamp(amountRatio / constants.amount_vs_avg_ratio());
-
-    // 3: hour_of_day
-    v[3] = clamp(hour / 23.0f);
-
-    // 4: day_of_week
-    v[4] = clamp(dayOfWeek / 6.0f);
-
-    // 5: minutes_since_last_tx
     v[5] = lastTransaction != null
-        ? clamp(minutesSinceLastTx / constants.max_minutes())
-        : -1.0f;
+            ? norm(minutesSinceLastTx / constants.max_minutes())
+            : -1;
 
-    // 6: km_from_last_tx
     v[6] = lastTransaction != null
-        ? clamp(lastTransaction.km_from_current() / constants.max_km())
-        : -1.0f;
+            ? norm(lastTransaction.km_from_current() / constants.max_km())
+            : -1;
 
-    // 7: km_from_home
-    v[7] = clamp(terminal.km_from_home() / constants.max_km());
+    v[7] = norm(terminal.km_from_home() / constants.max_km());
+    v[8] = norm(customer.tx_count_24h() / constants.max_tx_count_24h());
 
-    // 8: tx_count_24h
-    v[8] = clamp(customer.tx_count_24h() / constants.max_tx_count_24h());
+    v[9]  = terminal.is_online() ? (short) SCALE : 0;
+    v[10] = terminal.card_present() ? (short) SCALE : 0;
+    v[11] = customer.known_merchants().contains(merchant.id()) ? 0 : (short) SCALE;
 
-    // 9: is_online
-    v[9] = terminal.is_online() ? 1.0f : 0.0f;
+    v[12] = norm(mccRiskMap.getOrDefault(merchant.mcc(), 0.5f));
+    v[13] = norm(merchant.avg_amount() / constants.max_merchant_avg_amount());
 
-    // 10: card_present
-    v[10] = terminal.card_present() ? 1.0f : 0.0f;
-
-    // 11: unknown_merchant (1 = unknown)
-    v[11] = customer.known_merchants().contains(merchant.id()) ? 0.0f : 1.0f;
-
-    // 12: mcc_risk
-    v[12] = mccRiskMap.getOrDefault(merchant.mcc(), (float) 0.5);
-
-    // 13: merchant_avg_amount
-    v[13] = clamp(merchant.avg_amount() / constants.max_merchant_avg_amount());
-
-    return new TransactionVector(v);
+    return v;
   }
 
-  private static float clamp(float v) {
-    return Math.clamp(v, 0f, 1f);
+  private static short norm(float value) {
+    if (value < 0f) return (short) (value * SCALE);  // -1 stays -1
+    if (value >= 1f) return (short) SCALE;
+    return (short) (value * SCALE);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof TransactionVector that)) return false;
+    return java.util.Arrays.equals(features, that.features);
+  }
+
+  @Override
+  public int hashCode() {
+    return java.util.Arrays.hashCode(features);
   }
 }

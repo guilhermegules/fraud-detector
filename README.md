@@ -14,6 +14,19 @@ Images are built for `linux/amd64` architecture. If you're using a Mac with ARM6
 
 ## Building the Project
 
+### Precompute Dataset (Required before build)
+
+Convert the JSON reference dataset to binary format for faster loading:
+
+```bash
+python3 precompute.py [SAMPLE_RATE]
+# Example: python3 precompute.py 0.005  # 100% sample rate (default)
+```
+
+This generates `src/main/resources/references.bin` which loads directly into memory at startup.
+
+**Why needed:** The binary format eliminates JSON parsing overhead, reducing startup time and memory usage. The original `references.json.gz` (48MB compressed) is converted to a compact binary format that maps directly to Java's `float[]` and `byte[]` arrays.
+
 ### Using Gradle
 
 ```bash

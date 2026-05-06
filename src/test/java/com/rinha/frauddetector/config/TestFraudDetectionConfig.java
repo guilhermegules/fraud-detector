@@ -16,6 +16,6 @@ public class TestFraudDetectionConfig {
 
   @Bean
   public FraudDetectionService fraudDetectionService(ReferenceLoader referenceLoader) {
-    return new KnnFraudDetectionService();
+    return new KnnFraudDetectionService(referenceLoader);
   }
 }

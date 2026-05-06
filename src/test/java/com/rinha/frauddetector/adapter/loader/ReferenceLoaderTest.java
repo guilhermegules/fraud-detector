@@ -2,7 +2,6 @@ package com.rinha.frauddetector.adapter.loader;
 
 import com.rinha.frauddetector.domain.FraudReference;
 import com.rinha.frauddetector.domain.NormalizationConstants;
-import com.rinha.frauddetector.domain.TransactionVector;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -14,7 +13,7 @@ class ReferenceLoaderTest {
   @Test
   void shouldLoadNormalizationConstants() throws Exception {
     ReferenceLoader loader = new ReferenceLoader();
-    loader.loadAll();
+    loader.loadNormalization();
 
     NormalizationConstants constants = loader.getNormalizationConstants();
 
@@ -31,7 +30,7 @@ class ReferenceLoaderTest {
   @Test
   void shouldLoadMccRiskMap() throws Exception {
     ReferenceLoader loader = new ReferenceLoader();
-    loader.loadAll();
+    loader.loadMccRisk();
 
     Map<String, Float> mccRiskMap = loader.getMccRiskMap();
 
@@ -45,25 +44,26 @@ class ReferenceLoaderTest {
   @Test
   void shouldLoadFraudReference() throws Exception {
     ReferenceLoader loader = new ReferenceLoader();
-    loader.loadAll();
+    loader.loadFraudReference();
 
     FraudReference fraudReference = loader.getFraudReference();
 
     assertNotNull(fraudReference);
     assertNotNull(fraudReference.vectors());
     assertNotNull(fraudReference.labels());
-    assertEquals(fraudReference.vectors().length, fraudReference.labels().length);
+    assertEquals(fraudReference.vectors().length / 14, fraudReference.labels().length);
     assertTrue(fraudReference.vectors().length > 0);
   }
 
   @Test
   void shouldHaveCorrectVectorSize() throws Exception {
     ReferenceLoader loader = new ReferenceLoader();
-    loader.loadAll();
+    loader.loadFraudReference();
 
     FraudReference fraudReference = loader.getFraudReference();
-    TransactionVector[] vectors = fraudReference.vectors();
+    short[] vectors = fraudReference.vectors();
 
-    assertEquals(14, vectors[0].features().length);
+    assertEquals(0, vectors.length % 14);
+    assertTrue(vectors.length >= 14);
   }
 }

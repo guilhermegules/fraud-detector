@@ -29,4 +29,13 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 	maxHeapSize = "4g"
+	jvmArgs('--add-modules', 'jdk.incubator.vector')
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
+}
+
+tasks.named('bootRun').configure {
+	jvmArgs('--add-modules', 'jdk.incubator.vector')
 }

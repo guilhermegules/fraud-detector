@@ -18,8 +18,8 @@ class TransactionVectorTest {
 
   @Test
   void shouldCreateValidVector() {
-    float[] features = new float[14];
-    for (int i = 0; i < 14; i++) features[i] = 0.5f;
+    short[] features = new short[14];
+    for (int i = 0; i < 14; i++) features[i] = 5000;
 
     TransactionVector vector = new TransactionVector(features);
     assertNotNull(vector);
@@ -28,24 +28,24 @@ class TransactionVectorTest {
 
   @Test
   void shouldRejectInvalidSize() {
-    float[] features = new float[10];
+    short[] features = new short[10];
     assertThrows(IllegalArgumentException.class, () -> new TransactionVector(features));
   }
 
   @Test
   void shouldCalculateDistance() {
-    float[] f1 = new float[14];
-    float[] f2 = new float[14];
+    short[] f1 = new short[14];
+    short[] f2 = new short[14];
     for (int i = 0; i < 14; i++) {
-      f1[i] = 0.0f;
-      f2[i] = 1.0f;
+      f1[i] = 0;
+      f2[i] = 10000;
     }
 
     TransactionVector v1 = new TransactionVector(f1);
     TransactionVector v2 = new TransactionVector(f2);
 
-    float distance = v1.distanceTo(v2);
-    assertEquals(14.0f, distance, 0.001f);
+    int distance = v1.distanceTo(v2);
+    assertEquals(14 * 10000 * 10000, distance);
   }
 
   @Test
@@ -60,7 +60,7 @@ class TransactionVectorTest {
 
     assertNotNull(vector);
     assertEquals(14, vector.features().length);
-    assertTrue(vector.features()[0] >= 0.0f && vector.features()[0] <= 1.0f);
+    assertTrue(vector.features()[0] >= 0 && vector.features()[0] <= 10000);
   }
 
   @Test
@@ -77,21 +77,21 @@ class TransactionVectorTest {
     TransactionVector vector =
         TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15F));
 
-    float[] features = vector.features();
-    assertEquals(0.0041f, features[0], 0.001f);
-    assertEquals(0.1667f, features[1], 0.001f);
-    assertEquals(0.05f, features[2], 0.01f);
-    assertEquals(0.7826f, features[3], 0.001f);
-    assertEquals(0.3333f, features[4], 0.001f);
-    assertEquals(-1.0f, features[5], 0.001f);
-    assertEquals(-1.0f, features[6], 0.001f);
-    assertEquals(0.0292f, features[7], 0.001f);
-    assertEquals(0.15f, features[8], 0.001f);
-    assertEquals(0.0f, features[9], 0.001f);
-    assertEquals(1.0f, features[10], 0.001f);
-    assertEquals(0.0f, features[11], 0.001f);
-    assertEquals(0.15f, features[12], 0.001f);
-    assertEquals(0.006f, features[13], 0.001f);
+    short[] features = vector.features();
+    assertEquals(41, features[0], 1);
+    assertEquals(1667, features[1], 1);
+    assertEquals(500, features[2], 10);
+    assertEquals(7826, features[3], 1);
+    assertEquals(3333, features[4], 1);
+    assertEquals(-1, features[5], 1);
+    assertEquals(-1, features[6], 1);
+    assertEquals(292, features[7], 1);
+    assertEquals(1500, features[8], 1);
+    assertEquals(0, features[9], 1);
+    assertEquals(10000, features[10], 1);
+    assertEquals(0, features[11], 1);
+    assertEquals(1500, features[12], 1);
+    assertEquals(60, features[13], 1);
   }
 
   private FraudRequest createSampleRequest(
@@ -129,9 +129,9 @@ class TransactionVectorTest {
     TransactionVector vector =
         TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15f));
     
-    float[] features = vector.features();
-    assertEquals(-1.0f, features[5], 0.001f);
-    assertEquals(-1.0f, features[6], 0.001f);
+    short[] features = vector.features();
+    assertEquals(-1, features[5], 1);
+    assertEquals(-1, features[6], 1);
   }
 
   @Test
@@ -148,8 +148,8 @@ class TransactionVectorTest {
     TransactionVector vector =
         TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15f));
     
-    float[] features = vector.features();
-    assertEquals(1.0f, features[11], 0.001f);
+    short[] features = vector.features();
+    assertEquals(10000, features[11], 1);
   }
 
   @Test
@@ -166,8 +166,8 @@ class TransactionVectorTest {
     TransactionVector vector =
         TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15f));
     
-    float[] features = vector.features();
-    assertEquals(0.5f, features[12], 0.001f);
+    short[] features = vector.features();
+    assertEquals(5000, features[12], 1);
   }
 
   @Test
@@ -184,8 +184,8 @@ class TransactionVectorTest {
     TransactionVector vector =
         TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15f));
     
-    float[] features = vector.features();
-    assertEquals(1.0f, features[0], 0.001f);
+    short[] features = vector.features();
+    assertEquals(10000, features[0], 1);
   }
 
   @Test
@@ -202,7 +202,7 @@ class TransactionVectorTest {
     TransactionVector vector =
         TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15f));
     
-    float[] features = vector.features();
-    assertEquals(1.0f, features[1], 0.001f);
+    short[] features = vector.features();
+    assertEquals(10000, features[1], 1);
   }
 }
