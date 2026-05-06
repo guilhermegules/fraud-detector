@@ -3,9 +3,11 @@ package com.rinha.frauddetector.domain;
 public record FraudScore(boolean approved, float score) {
 
   public static final FraudScore SAFE = new FraudScore(true, 0.0f);
+  private static final float THRESHOLD = 0.35f;
 
   public static FraudScore fromScore(float score) {
-    return new FraudScore(score < 0.5f, clamp(score));
+    score = clamp(score);
+    return new FraudScore(score > THRESHOLD, score);
   }
 
   private static float clamp(float v) {

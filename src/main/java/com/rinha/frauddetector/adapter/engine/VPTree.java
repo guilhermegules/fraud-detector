@@ -78,7 +78,7 @@ public class VPTree {
 
   public List<Neighbor> search(short[] target, int k) {
     PriorityQueue<Neighbor> heap =
-            new PriorityQueue<>((a, b) -> b.dist - a.dist);
+            new PriorityQueue<>((a, b) -> b.distance - a.distance);
 
     search(root, target, k, heap);
     return new ArrayList<>(heap);
@@ -92,7 +92,7 @@ public class VPTree {
 
     if (heap.size() < k) {
       heap.add(new Neighbor(dist, node.label));
-    } else if (dist < heap.peek().dist) {
+    } else if (dist < heap.peek().distance) {
       heap.poll();
       heap.add(new Neighbor(dist, node.label));
     }
@@ -101,12 +101,12 @@ public class VPTree {
 
     if (dist < node.threshold) {
       search(node.left, target, k, heap);
-      if (heap.size() < k || Math.abs(dist - node.threshold) < heap.peek().dist) {
+      if (heap.size() < k || Math.abs(dist - node.threshold) < heap.peek().distance) {
         search(node.right, target, k, heap);
       }
     } else {
       search(node.right, target, k, heap);
-      if (heap.size() < k || Math.abs(dist - node.threshold) < heap.peek().dist) {
+      if (heap.size() < k || Math.abs(dist - node.threshold) < heap.peek().distance) {
         search(node.left, target, k, heap);
       }
     }
@@ -122,7 +122,7 @@ public class VPTree {
     VPTreeNode right;
   }
 
-  public record Neighbor(int dist, boolean label) {
+  public record Neighbor(int distance, boolean label) {
 
   }
 }

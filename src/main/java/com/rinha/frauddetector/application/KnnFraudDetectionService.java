@@ -10,6 +10,9 @@ import com.rinha.frauddetector.dto.FraudRequest;
 import jakarta.annotation.PostConstruct;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 import static com.rinha.frauddetector.adapter.loader.ReferenceLoader.BUCKET_COUNT;
 
@@ -60,20 +63,35 @@ public class KnnFraudDetectionService implements FraudDetectionService {
 
     int bucket = computeBucket(vector);
 
-    VPTree tree = trees[bucket];
+    List<VPTree.Neighbor> all = new ArrayList<>();
 
-    if (tree == null) {
-      return FraudScore.SAFE;
+    for (int b : neighborBuckets(bucket)) {
+      VPTree t = trees[b];
+      if (t != null) {
+        all.addAll(t.search(vector, K));
+      }
     }
 
-    var neighbors = tree.search(vector, K);
+    // keep top K globally
+    all.sort(Comparator.comparingDouble(VPTree.Neighbor::distance));
 
-    int fraudCount = 0;
+    List<VPTree.Neighbor> neighbors = all.subList(0, Math.min(K, all.size()));
+
+    float weightedFraud = 0f;
+    float totalWeight = 0f;
+
     for (var n : neighbors) {
-      if (n.label()) fraudCount++;
+      // avoid division by zero
+      float w = 1f / (n.distance() + 1e-6f);
+
+      if (n.label()) {
+        weightedFraud += w;
+      }
+
+      totalWeight += w;
     }
 
-    float score = (float) fraudCount / K;
+    float score = weightedFraud / totalWeight;
 
     return FraudScore.fromScore(score);
   }
@@ -95,5 +113,13 @@ public class KnnFraudDetectionService implements FraudDetectionService {
     tx = Math.max(0, Math.min(tx, 3));
 
     return (((binary * 24) + hour) * 7 + day) * 4 + tx;
+  }
+
+  private int[] neighborBuckets(int b) {
+    return new int[] {
+            b,
+            Math.max(0, b - 1),
+            Math.min(BUCKET_COUNT - 1, b + 1)
+    };
   }
 }

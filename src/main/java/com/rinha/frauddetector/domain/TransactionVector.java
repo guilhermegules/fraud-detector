@@ -12,6 +12,8 @@ public record TransactionVector(short[] features) {
 
   private static final int VECTOR_SIZE = 14;
   private static final int SCALE = 10_000;
+  private static final short MISSING = (short) (SCALE / 2);
+  private static final short BOOL_SCALE = 3000;
 
   public TransactionVector {
     if (features == null || features.length != VECTOR_SIZE) {
@@ -54,7 +56,7 @@ public record TransactionVector(short[] features) {
     final int dayOfWeek = instant.atZone(ZoneOffset.UTC).getDayOfWeek().getValue() - 1;
 
     float amountRatio = customer.avg_amount() > 0
-            ? (transaction.amount() / customer.avg_amount())
+            ? (float) Math.log1p(transaction.amount() / customer.avg_amount())
             : 0f;
 
     float minutesSinceLastTx = 0f;
@@ -68,23 +70,23 @@ public record TransactionVector(short[] features) {
     v[0] = norm(transaction.amount() / constants.max_amount());
     v[1] = norm(transaction.installments() / constants.max_installments());
     v[2] = norm(amountRatio / constants.amount_vs_avg_ratio());
-    v[3] = norm(hour / 23.0f);
-    v[4] = norm(dayOfWeek / 6.0f);
+    v[3] = (short) (norm(hour / 23.0f) * 1.5);
+    v[4] = (short) (norm(dayOfWeek / 6.0f) * 1.5);
 
     v[5] = lastTransaction != null
             ? norm(minutesSinceLastTx / constants.max_minutes())
-            : -1;
+            : MISSING;
 
     v[6] = lastTransaction != null
             ? norm(lastTransaction.km_from_current() / constants.max_km())
-            : -1;
+            : MISSING;
 
     v[7] = norm(terminal.km_from_home() / constants.max_km());
     v[8] = norm(customer.tx_count_24h() / constants.max_tx_count_24h());
 
-    v[9]  = terminal.is_online() ? (short) SCALE : 0;
-    v[10] = terminal.card_present() ? (short) SCALE : 0;
-    v[11] = customer.known_merchants().contains(merchant.id()) ? 0 : (short) SCALE;
+    v[9]  = terminal.is_online() ? BOOL_SCALE : 0;
+    v[10] = terminal.card_present() ? BOOL_SCALE : 0;
+    v[11] = customer.known_merchants().contains(merchant.id()) ? 0 : BOOL_SCALE;
 
     v[12] = norm(mccRiskMap.getOrDefault(merchant.mcc(), 0.5f));
     v[13] = norm(merchant.avg_amount() / constants.max_merchant_avg_amount());
@@ -93,7 +95,7 @@ public record TransactionVector(short[] features) {
   }
 
   private static short norm(float value) {
-    if (value < 0f) return (short) (value * SCALE);  // -1 stays -1
+    if (value <= 0f) return 0;
     if (value >= 1f) return (short) SCALE;
     return (short) (value * SCALE);
   }
