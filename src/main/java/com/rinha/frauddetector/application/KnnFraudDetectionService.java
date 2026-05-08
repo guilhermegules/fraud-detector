@@ -21,9 +21,10 @@ public class KnnFraudDetectionService implements FraudDetectionService {
   private VPTree[] trees;
   private final ReferenceLoader referenceLoader;
   private static final int K = 5;
+  private static final int BUCKET_SEARCH_RANGE = 5;
 
   private static final ThreadLocal<short[]> VECTOR_BUFFER = ThreadLocal.withInitial(() -> new short[16]);
-  private static final int[] NEIGHBOR_BUCKETS = new int[3];
+  private static final int[] NEIGHBOR_BUCKETS = new int[BUCKET_SEARCH_RANGE * 2 + 1];
 
   public KnnFraudDetectionService(ReferenceLoader referenceLoader) {
     this.referenceLoader = referenceLoader;
@@ -66,18 +67,18 @@ public class KnnFraudDetectionService implements FraudDetectionService {
 
     int bucket = computeBucket(vector);
 
-    NEIGHBOR_BUCKETS[0] = bucket;
-    NEIGHBOR_BUCKETS[1] = Math.max(0, bucket - 1);
-    NEIGHBOR_BUCKETS[2] = Math.min(BUCKET_COUNT - 1, bucket + 1);
+    int idx = 0;
+    for (int offset = -BUCKET_SEARCH_RANGE; offset <= BUCKET_SEARCH_RANGE; offset++) {
+      NEIGHBOR_BUCKETS[idx++] = Math.clamp(bucket + offset, 0, BUCKET_COUNT - 1);
+    }
 
-    List<VPTree.Neighbor> all = new ArrayList<>(15);
+    List<VPTree.Neighbor> all = new ArrayList<>(BUCKET_SEARCH_RANGE * 2 + 1);
 
-    for (int i = 0; i < 3; i++) {
-      int b = NEIGHBOR_BUCKETS[i];
-      VPTree t = trees[b];
-      if (t != null) {
-        all.addAll(t.search(vector, K));
-      }
+    for (int b : NEIGHBOR_BUCKETS) {
+        VPTree t = trees[b];
+        if (t != null) {
+            all.addAll(t.search(vector, K));
+        }
     }
 
     int remaining = all.size();
