@@ -42,80 +42,55 @@ public class ReferenceLoader {
   }
 
   public FraudReference loadFraudReference() throws IOException {
-    int[] bucketCounts = countBuckets();
+    int size = 0;
+    try (var in = new DataInputStream(new BufferedInputStream(open()))) {
+      size = readHeader(in);
+    }
+
+    short[] allVectors = new short[size * DIM];
+    boolean[] allLabels = new boolean[size];
+    int[] bucketCounts = new int[BUCKET_COUNT];
+    int[] bucketIndices = new int[size];
+
+    try (var in = new DataInputStream(new BufferedInputStream(open()))) {
+      readHeader(in);
+      short[] vector = new short[DIM];
+
+      for (int i = 0; i < size; i++) {
+        for (int j = 0; j < DIM; j++) {
+          vector[j] = readShortLE(in);
+        }
+        allLabels[i] = in.readByte() != 0;
+
+        System.arraycopy(vector, 0, allVectors, i * DIM, DIM);
+
+        int b = bucket(vector[9], vector[10], vector[11], vector[3], vector[4], vector[8]);
+        bucketIndices[i] = b;
+        bucketCounts[b]++;
+      }
+    }
 
     int[] bucketStarts = new int[BUCKET_COUNT + 1];
     for (int i = 0; i < BUCKET_COUNT; i++) {
       bucketStarts[i + 1] = bucketStarts[i] + bucketCounts[i];
     }
 
-    int totalSize = bucketStarts[BUCKET_COUNT];
+    short[] vectors = new short[size * DIM];
+    boolean[] labels = new boolean[size];
+    int[] positions = bucketStarts.clone();
 
-    short[] vectors = new short[totalSize * DIM];
-    boolean[] labels = new boolean[totalSize];
+    for (int i = 0; i < size; i++) {
+      int b = bucketIndices[i];
+      int pos = positions[b]++;
+      int baseDst = pos * DIM;
+      int baseSrc = i * DIM;
 
-    loadData(vectors, labels, bucketStarts.clone());
+      System.arraycopy(allVectors, baseSrc, vectors, baseDst, DIM);
+      labels[pos] = allLabels[i];
+    }
 
     fraudReference = new FraudReference(vectors, labels, bucketStarts, DIM);
     return fraudReference;
-  }
-
-  private int[] countBuckets() throws IOException {
-    int[] counts = new int[BUCKET_COUNT];
-
-    try (var in = new DataInputStream(new BufferedInputStream(open()))) {
-
-      int size = readHeader(in);
-      short[] vector = new short[DIM];
-
-      for (int i = 0; i < size; i++) {
-        for (int j = 0; j < DIM; j++) {
-          vector[j] = readShortLE(in);
-        }
-
-        in.readByte();
-
-        int bucket = bucket(
-                vector[9],
-                vector[10],
-                vector[11],
-                vector[3],
-                vector[4],
-                vector[8]
-        );
-
-        counts[bucket]++;
-      }
-    }
-
-    return counts;
-  }
-
-  private void loadData(short[] vectors, boolean[] labels, int[] positions) throws IOException {
-    try (var in = new DataInputStream(new BufferedInputStream(open()))) {
-
-      int size = readHeader(in);
-      short[] vector = new short[DIM];
-
-      for (int i = 0; i < size; i++) {
-        for (int j = 0; j < DIM; j++) {
-          vector[j] = readShortLE(in);
-        }
-
-        boolean label = in.readBoolean();
-
-        int bucket = bucket(
-                vector[9], vector[10], vector[11],
-                vector[3], vector[4], vector[8]
-        );
-
-        int pos = positions[bucket]++;
-        int base = pos * DIM;
-
-        System.arraycopy(vector, 0, vectors, base, DIM);
-        labels[pos] = label;
-      }
-    }
   }
 
   private int readHeader(DataInputStream in) throws IOException {

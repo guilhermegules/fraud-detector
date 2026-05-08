@@ -10,8 +10,21 @@ public record TransactionVector(short[] features) {
   private static final int VECTOR_SIZE = 16;
   private static final int RAW_SIZE = 14;
   private static final int SCALE = 10_000;
-  private static final short MISSING = -1;
-  private static final short BOOL_SCALE = 3000;
+  private static final short MISSING = -10000;
+
+  private static final short[] HOURLUT;
+  private static final short[] DOWLUT;
+
+  static {
+    HOURLUT = new short[24];
+    for (int i = 0; i < 24; i++) {
+      HOURLUT[i] = (short) ((float) i / 23f * SCALE);
+    }
+    DOWLUT = new short[7];
+    for (int i = 0; i < 7; i++) {
+      DOWLUT[i] = (short) ((float) i / 6f * SCALE);
+    }
+  }
 
   private static final int[] DAYS_IN_MONTH = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
@@ -45,52 +58,42 @@ public record TransactionVector(short[] features) {
           NormalizationConstants constants,
           Map<String, Float> mccRiskMap) {
 
-    final var transaction = request.transaction();
-    final var customer = request.customer();
-    final var merchant = request.merchant();
-    final var terminal = request.terminal();
-    final var lastTransaction = request.last_transaction();
-
-    final String currentTs = transaction.requested_at();
-    final int hour = parseHour(currentTs);
-    final int dayOfWeek = parseDayOfWeek(currentTs);
-
-    float amountRatio = customer.avg_amount() > 0
-            ? (float) Math.log1p(transaction.amount() / customer.avg_amount())
-            : 0f;
-
-    float minutesSinceLastTx = 0f;
-    if (lastTransaction != null) {
-      long currentEpoch = parseEpochSecond(currentTs);
-      long lastEpoch = parseEpochSecond(lastTransaction.timestamp());
-      minutesSinceLastTx = (currentEpoch - lastEpoch) / 60f;
-    }
+    final String ts = request.transaction().requested_at();
+    final int hour = (ts.charAt(11) - '0') * 10 + (ts.charAt(12) - '0');
+    final int dow = parseDayOfWeek(ts);
 
     short[] v = new short[VECTOR_SIZE];
 
-    v[0] = (short) (norm(transaction.amount() / constants.max_amount()) * SCALE);
-    v[1] = (short) (norm(transaction.installments() / constants.max_installments()) * SCALE);
-    v[2] = (short) (norm(amountRatio / constants.amount_vs_avg_ratio()) * SCALE);
-    v[3] = (short) (norm(hour / 23.0f) * SCALE);
-    v[4] = (short) (norm(dayOfWeek / 6.0f) * SCALE);
+    v[0] = q(clamp(request.transaction().amount() / constants.max_amount()));
+    v[1] = q(clamp(request.transaction().installments() / constants.max_installments()));
 
-    if (lastTransaction != null) {
-      v[5] = (short) (norm(minutesSinceLastTx / constants.max_minutes()) * SCALE);
-      v[6] = (short) (norm(lastTransaction.km_from_current() / constants.max_km()) * SCALE);
+    float avgAmt = request.customer().avg_amount();
+    v[2] = q(clamp((avgAmt > 0 ? request.transaction().amount() / avgAmt : 0f) / constants.amount_vs_avg_ratio()));
+
+    v[3] = HOURLUT[hour];
+    v[4] = DOWLUT[dow];
+
+    final var lastTx = request.last_transaction();
+    if (lastTx != null) {
+      long currEpoch = parseEpochSecond(ts);
+      long lastEpoch = parseEpochSecond(lastTx.timestamp());
+      float minutes = (currEpoch - lastEpoch) / 60f;
+      v[5] = q(clamp(minutes / constants.max_minutes()));
+      v[6] = q(clamp(lastTx.km_from_current() / constants.max_km()));
     } else {
       v[5] = MISSING;
       v[6] = MISSING;
     }
 
-    v[7] = (short) (norm(terminal.km_from_home() / constants.max_km()) * SCALE);
-    v[8] = (short) (norm(customer.tx_count_24h() / constants.max_tx_count_24h()) * SCALE);
+    v[7] = q(clamp(request.terminal().km_from_home() / constants.max_km()));
+    v[8] = q(clamp(request.customer().tx_count_24h() / constants.max_tx_count_24h()));
 
-    v[9]  = terminal.is_online() ? BOOL_SCALE : 0;
-    v[10] = terminal.card_present() ? BOOL_SCALE : 0;
-    v[11] = customer.known_merchants().contains(merchant.id()) ? 0 : BOOL_SCALE;
+    v[9] = request.terminal().is_online() ? (short) SCALE : (short) 0;
+    v[10] = request.terminal().card_present() ? (short) SCALE : (short) 0;
+    v[11] = request.customer().known_merchants().contains(request.merchant().id()) ? (short) 0 : (short) SCALE;
 
-    v[12] = (short) (norm(mccRiskMap.getOrDefault(merchant.mcc(), 0.5f)) * SCALE);
-    v[13] = (short) (norm(merchant.avg_amount() / constants.max_merchant_avg_amount()) * SCALE);
+    v[12] = q(clamp(mccRiskMap.getOrDefault(request.merchant().mcc(), 0.5f)));
+    v[13] = q(clamp(request.merchant().avg_amount() / constants.max_merchant_avg_amount()));
 
     v[14] = 0;
     v[15] = 0;
@@ -98,8 +101,17 @@ public record TransactionVector(short[] features) {
     return v;
   }
 
-  private static int parseHour(String ts) {
-    return (ts.charAt(11) - '0') * 10 + (ts.charAt(12) - '0');
+  private static double clamp(double x) {
+    if (x < 0) return 0;
+    if (x > 1) return 1;
+    return x;
+  }
+
+  private static short q(double x) {
+    double q = Math.round(x * SCALE);
+    if (q > Short.MAX_VALUE) q = Short.MAX_VALUE;
+    if (q < Short.MIN_VALUE) q = Short.MIN_VALUE;
+    return (short) q;
   }
 
   private static int parseDayOfWeek(String ts) {
@@ -107,16 +119,16 @@ public record TransactionVector(short[] features) {
     int month = parseInt(ts, 5, 7);
     int day = parseInt(ts, 8, 10);
 
-    int dayOfYear = day;
-    for (int m = 1; m < month; m++) {
-      dayOfYear += DAYS_IN_MONTH[m - 1];
+    int m = month;
+    if (m < 3) {
+      m += 12;
+      year--;
     }
-    if (month > 2 && isLeapYear(year)) {
-      dayOfYear++;
-    }
+    int k = year % 100;
+    int j = year / 100;
 
-    int dow = (year + year / 4 - year / 100 + year / 400 + dayOfYear) % 7;
-    return dow;
+    int h = (day + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 + 5 * j) % 7;
+    return (h + 6) % 7;
   }
 
   private static boolean isLeapYear(int year) {

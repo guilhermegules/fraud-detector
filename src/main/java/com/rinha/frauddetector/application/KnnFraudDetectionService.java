@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import static com.rinha.frauddetector.adapter.loader.ReferenceLoader.BUCKET_COUNT;
 
@@ -32,12 +33,12 @@ public class KnnFraudDetectionService implements FraudDetectionService {
 
     trees = new VPTree[BUCKET_COUNT];
 
-    for (int b = 0; b < BUCKET_COUNT; b++) {
+    IntStream.range(0, BUCKET_COUNT).parallel().forEach(b -> {
       int start = ref.bucketStarts()[b];
       int end = ref.bucketStarts()[b + 1];
 
       int size = end - start;
-      if (size == 0) continue;
+      if (size == 0) return;
 
       short[] vectors = new short[size * 16];
       boolean[] labels = new boolean[size];
@@ -46,7 +47,7 @@ public class KnnFraudDetectionService implements FraudDetectionService {
       System.arraycopy(ref.labels(), start, labels, 0, size);
 
       trees[b] = new VPTree(vectors, labels, 16);
-    }
+    });
   }
 
   @Override
@@ -97,13 +98,13 @@ public class KnnFraudDetectionService implements FraudDetectionService {
     if (v[11] > 5000) binary |= 4;
 
     int hour = Math.round((v[3] * 23f) / 10000f);
-    hour = Math.max(0, Math.min(hour, 23));
+    hour = Math.clamp(hour, 0, 23);
 
     int day = Math.round((v[4] * 6f) / 10000f);
-    day = Math.max(0, Math.min(day, 6));
+    day = Math.clamp(day, 0, 6);
 
     int tx = v[8] / 2500;
-    tx = Math.max(0, Math.min(tx, 3));
+    tx = Math.clamp(tx, 0, 3);
 
     return (((binary * 24) + hour) * 7 + day) * 4 + tx;
   }
