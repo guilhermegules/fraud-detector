@@ -3,12 +3,12 @@ FROM eclipse-temurin:25-jdk AS build
 
 WORKDIR /app
 
-COPY gradlew gradlew
-COPY gradle gradle
-COPY build.gradle settings.gradle ./
+COPY ../gradlew gradlew
+COPY ../gradle gradle
+COPY ../build.gradle settings.gradle ./
 RUN ./gradlew dependencies --no-daemon
 
-COPY src src
+COPY ../src src
 RUN ./gradlew bootJar --no-daemon
 
 # ---- Runtime stage ----

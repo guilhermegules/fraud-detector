@@ -1,3 +1,14 @@
+x-api: &api
+  image: guilhermegules/fraud-detector-rinha:latest
+  environment:
+    - SERVER_PORT=8080
+  deploy:
+    resources:
+      limits:
+        cpus: "0.45"
+        memory: "160MB"
+
+
 services:
 
   haproxy:
@@ -17,28 +28,12 @@ services:
       - api2
 
   api1:
-    build:
-      context: .
+    <<: *api
     container_name: api1
-    environment:
-      - SERVER_PORT=8080
-    deploy:
-      resources:
-        limits:
-          cpus: "0.45"
-          memory: "160MB"
 
   api2:
-    build:
-      context: .
+    <<: *api
     container_name: api2
-    environment:
-      - SERVER_PORT=8080
-    deploy:
-      resources:
-        limits:
-          cpus: "0.45"
-          memory: "160MB"
 
 networks:
   default:

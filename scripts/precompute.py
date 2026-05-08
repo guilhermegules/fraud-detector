@@ -23,7 +23,7 @@ def main():
 
     print(f"Loading references with SAMPLE_RATE={SAMPLE_RATE}...")
 
-    with gzip.open("external-data/references.json.gz", "rt") as f:
+    with gzip.open("../external-data/references.json.gz", "rt") as f:
         data = json.load(f)
 
         for obj in data:
@@ -48,7 +48,7 @@ def main():
     count = len(labels)
     print(f"Loaded {count} records ({fraud_count} fraud, {legit_count} legit)")
 
-    with open("src/main/resources/references.bin", "wb") as f:
+    with open("../src/main/resources/references.bin", "wb") as f:
         # HEADER (little-endian)
         f.write(struct.pack("<I", FILE_SIGNATURE))
         f.write(struct.pack("<I", VERSION))
