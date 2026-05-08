@@ -9,6 +9,8 @@ public class VPTree {
   private final int dim;
 
   private final VPTreeNode root;
+  private final short[] searchBuffer;
+  private final short[] buildBuffer;
 
   private static final Random RANDOM = new Random();
 
@@ -16,6 +18,8 @@ public class VPTree {
     this.vectors = vectors;
     this.labels = labels;
     this.dim = dim;
+    this.searchBuffer = new short[dim];
+    this.buildBuffer = new short[dim];
 
     int size = labels.length;
     int[] indices = new int[size];
@@ -27,21 +31,24 @@ public class VPTree {
   private VPTreeNode build(int[] indices, int start, int end) {
     if (start >= end) return null;
 
+    if (end - start <= 8) return null;
+
     VPTreeNode node = new VPTreeNode();
 
     int vpIdx = start + RANDOM.nextInt(end - start);
     node.index = indices[vpIdx];
-    node.point = getVector(node.index);
     node.label = labels[node.index];
 
     if (end - start > 1) {
       int sampleSize = Math.min(32, end - start - 1);
       int[] distances = new int[sampleSize];
 
+      System.arraycopy(vectors, node.index * dim, buildBuffer, 0, dim);
+
       for (int i = 0; i < sampleSize; i++) {
         int idx = start + RANDOM.nextInt(end - start);
         if (idx == vpIdx) { i--; continue; }
-        distances[i] = distance(node.point, getVector(indices[idx]));
+        distances[i] = distance(buildBuffer, indices[idx]);
       }
 
       Arrays.sort(distances);
@@ -50,7 +57,7 @@ public class VPTree {
       int leftSize = 0;
       for (int i = start; i < end; i++) {
         if (i == vpIdx) continue;
-        if (distance(node.point, getVector(indices[i])) < node.threshold) {
+        if (distance(buildBuffer, indices[i]) < node.threshold) {
           leftSize++;
         }
       }
@@ -61,7 +68,7 @@ public class VPTree {
 
       for (int i = start; i < end; i++) {
         if (i == vpIdx) continue;
-        int d = distance(node.point, getVector(indices[i]));
+        int d = distance(buildBuffer, indices[i]);
         if (d < node.threshold) {
           leftIndices[li++] = indices[i];
         } else {
@@ -76,24 +83,34 @@ public class VPTree {
     return node;
   }
 
-  static int distance(short[] a, short[] b) {
+  private int distance(short[] a, int bIndex) {
     int sum = 0;
-    for (int i = 0; i < 16; i++) {
-      int d = a[i] - b[i];
+    int base = bIndex * dim;
+    for (int i = 0; i < dim; i++) {
+      int d = a[i] - vectors[base + i];
+      sum += d * d;
+    }
+    return sum;
+  }
+
+  private int distanceFromIndex(short[] target, int index) {
+    int sum = 0;
+    int base = index * dim;
+    for (int i = 0; i < dim; i++) {
+      int d = target[i] - vectors[base + i];
       sum += d * d;
     }
     return sum;
   }
 
   private short[] getVector(int index) {
-    short[] v = new short[dim];
-    System.arraycopy(vectors, index * dim, v, 0, dim);
-    return v;
+    System.arraycopy(vectors, index * dim, searchBuffer, 0, dim);
+    return searchBuffer;
   }
 
   public List<Neighbor> search(short[] target, int k) {
     PriorityQueue<Neighbor> heap =
-            new PriorityQueue<>((a, b) -> b.distance - a.distance);
+            new PriorityQueue<>(k, (a, b) -> b.distance - a.distance);
 
     search(root, target, k, heap);
     return new ArrayList<>(heap);
@@ -103,7 +120,7 @@ public class VPTree {
                       PriorityQueue<Neighbor> heap) {
     if (node == null) return;
 
-    int dist = distance(target, node.point);
+    int dist = distanceFromIndex(target, node.index);
 
     if (heap.size() < k) {
       heap.add(new Neighbor(dist, node.label));
@@ -128,16 +145,12 @@ public class VPTree {
   }
 
   private static class VPTreeNode {
-    short[] point;
-    boolean label;
     int index;
-
+    boolean label;
     double threshold;
     VPTreeNode left;
     VPTreeNode right;
   }
 
-  public record Neighbor(int distance, boolean label) {
-
-  }
+  public record Neighbor(int distance, boolean label) {}
 }

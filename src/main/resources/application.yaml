@@ -4,5 +4,9 @@ spring:
 server:
   tomcat:
     threads:
-      max: 20
-      min-spare: 5
+      max: 200
+      min-spare: 20
+    max-connections: 500
+    accept-count: 200
+    connection-timeout: 30s
+    max-swallow-size: -1

@@ -19,10 +19,12 @@ WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
 
 ENV JAVA_OPTS="\
--Xms140m \
--Xmx140m \
+-Xms120m \
+-Xmx120m \
 -XX:+UseZGC \
 -XX:+AlwaysPreTouch \
+-XX:MaxRAMPercentage=75 \
+-Xss1m \
 --add-modules=jdk.incubator.vector \
 "
 

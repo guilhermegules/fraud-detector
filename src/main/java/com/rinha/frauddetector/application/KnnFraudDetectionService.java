@@ -11,7 +11,6 @@ import jakarta.annotation.PostConstruct;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -22,6 +21,9 @@ public class KnnFraudDetectionService implements FraudDetectionService {
   private VPTree[] trees;
   private final ReferenceLoader referenceLoader;
   private static final int K = 5;
+
+  private static final ThreadLocal<short[]> VECTOR_BUFFER = ThreadLocal.withInitial(() -> new short[16]);
+  private static final int[] NEIGHBOR_BUCKETS = new int[3];
 
   public KnnFraudDetectionService(ReferenceLoader referenceLoader) {
     this.referenceLoader = referenceLoader;
@@ -56,31 +58,43 @@ public class KnnFraudDetectionService implements FraudDetectionService {
       throw new IllegalStateException("Dataset not loaded");
     }
 
-    short[] vector = TransactionVector.toArray(
-        request,
+    short[] vector = VECTOR_BUFFER.get();
+    TransactionVector.toArray(request,
         referenceLoader.getNormalizationConstants(),
-        referenceLoader.getMccRiskMap()
-    );
+        referenceLoader.getMccRiskMap(),
+        vector);
 
     int bucket = computeBucket(vector);
 
-    List<VPTree.Neighbor> all = new ArrayList<>();
+    NEIGHBOR_BUCKETS[0] = bucket;
+    NEIGHBOR_BUCKETS[1] = Math.max(0, bucket - 1);
+    NEIGHBOR_BUCKETS[2] = Math.min(BUCKET_COUNT - 1, bucket + 1);
 
-    for (int b : neighborBuckets(bucket)) {
+    List<VPTree.Neighbor> all = new ArrayList<>(15);
+
+    for (int i = 0; i < 3; i++) {
+      int b = NEIGHBOR_BUCKETS[i];
       VPTree t = trees[b];
       if (t != null) {
         all.addAll(t.search(vector, K));
       }
     }
 
-    // keep top K globally
-    all.sort(Comparator.comparingDouble(VPTree.Neighbor::distance));
-
-    List<VPTree.Neighbor> neighbors = all.subList(0, Math.min(K, all.size()));
+    int remaining = all.size();
+    for (int i = 1; i < remaining; i++) {
+      VPTree.Neighbor key = all.get(i);
+      int j = i - 1;
+      while (j >= 0 && all.get(j).distance() > key.distance()) {
+        all.set(j + 1, all.get(j));
+        j--;
+      }
+      all.set(j + 1, key);
+    }
 
     int fraudCount = 0;
-    for (var n : neighbors) {
-      if (n.label()) {
+    int count = Math.min(K, all.size());
+    for (int i = 0; i < count; i++) {
+      if (all.get(i).label()) {
         fraudCount++;
       }
     }
@@ -107,13 +121,5 @@ public class KnnFraudDetectionService implements FraudDetectionService {
     tx = Math.clamp(tx, 0, 3);
 
     return (((binary * 24) + hour) * 7 + day) * 4 + tx;
-  }
-
-  private int[] neighborBuckets(int b) {
-    return new int[] {
-            b,
-            Math.max(0, b - 1),
-            Math.min(BUCKET_COUNT - 1, b + 1)
-    };
   }
 }

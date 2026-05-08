@@ -57,12 +57,20 @@ public record TransactionVector(short[] features) {
           FraudRequest request,
           NormalizationConstants constants,
           Map<String, Float> mccRiskMap) {
+    short[] v = new short[VECTOR_SIZE];
+    toArray(request, constants, mccRiskMap, v);
+    return v;
+  }
+
+  public static void toArray(
+          FraudRequest request,
+          NormalizationConstants constants,
+          Map<String, Float> mccRiskMap,
+          short[] v) {
 
     final String ts = request.transaction().requested_at();
     final int hour = (ts.charAt(11) - '0') * 10 + (ts.charAt(12) - '0');
     final int dow = parseDayOfWeek(ts);
-
-    short[] v = new short[VECTOR_SIZE];
 
     v[0] = q(clamp(request.transaction().amount() / constants.max_amount()));
     v[1] = q(clamp(request.transaction().installments() / constants.max_installments()));
@@ -97,8 +105,6 @@ public record TransactionVector(short[] features) {
 
     v[14] = 0;
     v[15] = 0;
-
-    return v;
   }
 
   private static double clamp(double x) {
