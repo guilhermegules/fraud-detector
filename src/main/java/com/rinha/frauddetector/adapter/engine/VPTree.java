@@ -10,6 +10,8 @@ public class VPTree {
 
   private final VPTreeNode root;
 
+  private static final Random RANDOM = new Random();
+
   public VPTree(short[] vectors, boolean[] labels, int dim) {
     this.vectors = vectors;
     this.labels = labels;
@@ -26,36 +28,49 @@ public class VPTree {
     if (start >= end) return null;
 
     VPTreeNode node = new VPTreeNode();
-    int vpIndex = indices[start];
-    node.index = vpIndex;
-    node.point = getVector(vpIndex);
-    node.label = labels[vpIndex];
+
+    int vpIdx = start + RANDOM.nextInt(end - start);
+    node.index = indices[vpIdx];
+    node.point = getVector(node.index);
+    node.label = labels[node.index];
 
     if (end - start > 1) {
-      int median = (start + end) / 2;
+      int sampleSize = Math.min(32, end - start - 1);
+      int[] distances = new int[sampleSize];
 
-      for (int i = start + 1; i < end - 1; i++) {
-        int bestIdx = i;
-
-        for (int j = i + 1; j < end; j++) {
-          int distJ = distance(node.point, getVector(indices[j]));
-          int distBest = distance(node.point, getVector(indices[bestIdx]));
-
-          if (distJ < distBest) {
-            bestIdx = j;
-          }
-        }
-
-        // swap
-        int tmp = indices[i];
-        indices[i] = indices[bestIdx];
-        indices[bestIdx] = tmp;
+      for (int i = 0; i < sampleSize; i++) {
+        int idx = start + RANDOM.nextInt(end - start);
+        if (idx == vpIdx) { i--; continue; }
+        distances[i] = distance(node.point, getVector(indices[idx]));
       }
 
-      node.threshold = distance(node.point, getVector(indices[median]));
+      Arrays.sort(distances);
+      node.threshold = distances[sampleSize / 2];
 
-      node.left = build(indices, start + 1, median);
-      node.right = build(indices, median, end);
+      int leftSize = 0;
+      for (int i = start; i < end; i++) {
+        if (i == vpIdx) continue;
+        if (distance(node.point, getVector(indices[i])) < node.threshold) {
+          leftSize++;
+        }
+      }
+
+      int[] leftIndices = new int[leftSize];
+      int[] rightIndices = new int[end - start - 1 - leftSize];
+      int li = 0, ri = 0;
+
+      for (int i = start; i < end; i++) {
+        if (i == vpIdx) continue;
+        int d = distance(node.point, getVector(indices[i]));
+        if (d < node.threshold) {
+          leftIndices[li++] = indices[i];
+        } else {
+          rightIndices[ri++] = indices[i];
+        }
+      }
+
+      node.left = build(leftIndices, 0, li);
+      node.right = build(rightIndices, 0, ri);
     }
 
     return node;

@@ -7,7 +7,7 @@ public record FraudScore(boolean approved, float score) {
 
   public static FraudScore fromScore(float score) {
     score = clamp(score);
-    return new FraudScore(score > THRESHOLD, score);
+    return new FraudScore(score < THRESHOLD, score);
   }
 
   private static float clamp(float v) {

@@ -23,7 +23,7 @@ def main():
 
     print(f"Loading references with SAMPLE_RATE={SAMPLE_RATE}...")
 
-    with gzip.open("src/main/resources/references.json.gz", "rt") as f:
+    with gzip.open("external-data/references.json.gz", "rt") as f:
         data = json.load(f)
 
         for obj in data:

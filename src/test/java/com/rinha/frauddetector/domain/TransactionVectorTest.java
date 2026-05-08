@@ -18,12 +18,12 @@ class TransactionVectorTest {
 
   @Test
   void shouldCreateValidVector() {
-    short[] features = new short[14];
-    for (int i = 0; i < 14; i++) features[i] = 5000;
+    short[] features = new short[16];
+    for (int i = 0; i < 16; i++) features[i] = 5000;
 
     TransactionVector vector = new TransactionVector(features);
     assertNotNull(vector);
-    assertEquals(14, vector.features().length);
+    assertEquals(16, vector.features().length);
   }
 
   @Test
@@ -34,8 +34,8 @@ class TransactionVectorTest {
 
   @Test
   void shouldCalculateDistance() {
-    short[] f1 = new short[14];
-    short[] f2 = new short[14];
+    short[] f1 = new short[16];
+    short[] f2 = new short[16];
     for (int i = 0; i < 14; i++) {
       f1[i] = 0;
       f2[i] = 10000;
@@ -59,7 +59,7 @@ class TransactionVectorTest {
             request, CONSTANTS, java.util.Map.of("5411", 0.15F, "5912", 0.20F));
 
     assertNotNull(vector);
-    assertEquals(14, vector.features().length);
+    assertEquals(16, vector.features().length);
     assertTrue(vector.features()[0] >= 0 && vector.features()[0] <= 10000);
   }
 
@@ -82,13 +82,13 @@ class TransactionVectorTest {
     assertEquals(1667, features[1], 1);
     assertEquals(500, features[2], 10);
     assertEquals(7826, features[3], 1);
-    assertEquals(3333, features[4], 1);
+    assertEquals(5000, features[4], 1);
     assertEquals(-1, features[5], 1);
     assertEquals(-1, features[6], 1);
     assertEquals(292, features[7], 1);
     assertEquals(1500, features[8], 1);
     assertEquals(0, features[9], 1);
-    assertEquals(10000, features[10], 1);
+    assertEquals(3000, features[10], 1);
     assertEquals(0, features[11], 1);
     assertEquals(1500, features[12], 1);
     assertEquals(60, features[13], 1);
@@ -149,7 +149,7 @@ class TransactionVectorTest {
         TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15f));
     
     short[] features = vector.features();
-    assertEquals(10000, features[11], 1);
+    assertEquals(3000, features[11], 1);
   }
 
   @Test

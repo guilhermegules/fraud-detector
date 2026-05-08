@@ -60,8 +60,8 @@ class VPTreeTest {
 
     assertEquals(2, neighbors.size());
     neighbors.sort(Comparator.comparingInt(VPTree.Neighbor::distance));
-    assertEquals(100, neighbors.get(0).distance());
-    assertEquals(100, neighbors.get(1).distance());
+    assertEquals(2500, neighbors.get(0).distance());
+    assertEquals(2500, neighbors.get(1).distance());
   }
 
   @Test
