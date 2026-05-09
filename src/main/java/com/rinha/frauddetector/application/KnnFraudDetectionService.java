@@ -20,11 +20,9 @@ public class KnnFraudDetectionService implements FraudDetectionService {
 
   private VPTree[] trees;
   private final ReferenceLoader referenceLoader;
-  private static final int K = 5;
-  private static final int BUCKET_SEARCH_RANGE = 5;
+  private static final int K = 10;
 
   private static final ThreadLocal<short[]> VECTOR_BUFFER = ThreadLocal.withInitial(() -> new short[16]);
-  private static final int[] NEIGHBOR_BUCKETS = new int[BUCKET_SEARCH_RANGE * 2 + 1];
 
   public KnnFraudDetectionService(ReferenceLoader referenceLoader) {
     this.referenceLoader = referenceLoader;
@@ -67,18 +65,15 @@ public class KnnFraudDetectionService implements FraudDetectionService {
 
     int bucket = computeBucket(vector);
 
-    int idx = 0;
-    for (int offset = -BUCKET_SEARCH_RANGE; offset <= BUCKET_SEARCH_RANGE; offset++) {
-      NEIGHBOR_BUCKETS[idx++] = Math.clamp(bucket + offset, 0, BUCKET_COUNT - 1);
-    }
+    List<VPTree.Neighbor> all = new ArrayList<>(K * 4);
 
-    List<VPTree.Neighbor> all = new ArrayList<>(BUCKET_SEARCH_RANGE * 2 + 1);
-
-    for (int b : NEIGHBOR_BUCKETS) {
-        VPTree t = trees[b];
-        if (t != null) {
-            all.addAll(t.search(vector, K));
-        }
+    for (int offset = -15; offset <= 15; offset++) {
+      int b = bucket + offset;
+      if (b < 0 || b >= BUCKET_COUNT) continue;
+      VPTree t = trees[b];
+      if (t != null) {
+        all.addAll(t.search(vector, K));
+      }
     }
 
     int remaining = all.size();
@@ -92,17 +87,33 @@ public class KnnFraudDetectionService implements FraudDetectionService {
       all.set(j + 1, key);
     }
 
-    int fraudCount = 0;
     int count = Math.min(K, all.size());
+    if (count == 0) {
+      return new FraudScore(true, 0.0f);
+    }
+
+    float score = getScore(all, count);
+    return FraudScore.fromScore(score);
+  }
+
+  private static float getScore(List<VPTree.Neighbor> all, int count) {
+    int farthestDist = all.get(count - 1).distance();
+    if (farthestDist == 0) farthestDist = 1;
+
+    float totalWeight = 0f;
+    float fraudWeight = 0f;
+
     for (int i = 0; i < count; i++) {
-      if (all.get(i).label()) {
-        fraudCount++;
+      VPTree.Neighbor n = all.get(i);
+      float weight = 1.0f - ((float) n.distance() / farthestDist);
+      weight = Math.max(weight, 0.1f);
+      totalWeight += weight;
+      if (n.label()) {
+        fraudWeight += weight;
       }
     }
 
-    float score = (float) fraudCount / K;
-
-    return FraudScore.fromScore(score);
+      return totalWeight > 0 ? fraudWeight / totalWeight : 0f;
   }
 
   private int computeBucket(short[] v) {

@@ -31,7 +31,7 @@ public class VPTree {
   private VPTreeNode build(int[] indices, int start, int end) {
     if (start >= end) return null;
 
-    if (end - start <= 8) return null;
+    if (end - start <= 32) return null;
 
     VPTreeNode node = new VPTreeNode();
 
