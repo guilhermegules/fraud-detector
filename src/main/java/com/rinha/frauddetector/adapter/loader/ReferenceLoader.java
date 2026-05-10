@@ -42,7 +42,7 @@ public class ReferenceLoader {
   }
 
   public FraudReference loadFraudReference() throws IOException {
-    int size = 0;
+    int size;
     try (var in = new DataInputStream(new BufferedInputStream(open()))) {
       size = readHeader(in);
     }
@@ -93,28 +93,8 @@ public class ReferenceLoader {
     return fraudReference;
   }
 
-  private int readHeader(DataInputStream in) throws IOException {
-    int signature = readIntLE(in);
-    if (signature != FILE_SIGNATURE) {
-      throw new IOException("Invalid signature: " + signature);
-    }
-
-    int version = readIntLE(in);
-    if (version != VERSION) {
-      throw new IOException("Invalid version: " + version);
-    }
-
-    int dim = readIntLE(in);
-    if (dim != DIM) {
-      throw new IOException("Invalid dimension: " + dim);
-    }
-
-    return readIntLE(in);
-  }
-
   private int bucket(short online, short cardPresent, short knownMerchant,
                      short hourValue, short dayValue, short txCountValue) {
-
     int binary = 0;
     if (online > 5000) binary |= 1;
     if (cardPresent > 5000) binary |= 2;
@@ -132,9 +112,24 @@ public class ReferenceLoader {
     return (((binary * HOURS) + hour) * DAYS + day) * TX_BUCKETS + tx;
   }
 
+  private int readHeader(DataInputStream in) throws IOException {
+    int signature = readIntLE(in);
+    if (signature != FILE_SIGNATURE) {
+      throw new IOException("Invalid signature: " + signature);
+    }
+    int version = readIntLE(in);
+    if (version != VERSION) {
+      throw new IOException("Invalid version: " + version);
+    }
+    int dim = readIntLE(in);
+    if (dim != DIM) {
+      throw new IOException("Invalid dimension: " + dim);
+    }
+    return readIntLE(in);
+  }
 
   private InputStream open() throws IOException {
-      return new ClassPathResource("references.bin").getInputStream();
+    return new ClassPathResource("references.bin").getInputStream();
   }
 
   public NormalizationConstants getNormalizationConstants() {

@@ -2,8 +2,10 @@ package com.rinha.frauddetector.engine;
 
 import com.rinha.frauddetector.adapter.engine.VPTree;
 import org.junit.jupiter.api.Test;
-import java.util.*;
-import java.util.stream.Collectors;
+
+import java.util.Arrays;
+import java.util.Comparator;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class VPTreeTest {
@@ -11,8 +13,9 @@ class VPTreeTest {
   @Test
   void buildEmptyTree() {
     VPTree tree = new VPTree(new short[0], new boolean[0], 16);
-    List<VPTree.Neighbor> neighbors = tree.search(new short[16], 1);
-    assertTrue(neighbors.isEmpty());
+    VPTree.Neighbor[] neighbors = tree.search(new short[16], 1);
+    assertEquals(1, neighbors.length);
+    assertEquals(Integer.MAX_VALUE, neighbors[0].distance());
   }
 
   @Test
@@ -22,10 +25,9 @@ class VPTreeTest {
     VPTree tree = new VPTree(vectors, labels, 16);
 
     short[] query = {0, 0, 0, 0, 0, 0, 0, 0, 0, 5000, 0, 0, 0, 0, 0, 0};
-    List<VPTree.Neighbor> neighbors = tree.search(query, 1);
+    VPTree.Neighbor[] neighbors = tree.search(query, 1);
 
-    assertEquals(1, neighbors.size());
-    assertEquals(0, neighbors.get(0).distance());
+    assertEquals(0, neighbors[0].distance());
   }
 
   @Test
@@ -39,10 +41,9 @@ class VPTreeTest {
     VPTree tree = new VPTree(vectors, labels, 16);
 
     short[] query = {1000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    List<VPTree.Neighbor> neighbors = tree.search(query, 1);
+    VPTree.Neighbor[] neighbors = tree.search(query, 1);
 
-    assertEquals(1, neighbors.size());
-    assertEquals(0, neighbors.get(0).distance());
+    assertEquals(0, neighbors[0].distance());
   }
 
   @Test
@@ -56,12 +57,11 @@ class VPTreeTest {
     VPTree tree = new VPTree(vectors, labels, 16);
 
     short[] query = {150, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    List<VPTree.Neighbor> neighbors = tree.search(query, 2);
+    VPTree.Neighbor[] neighbors = tree.search(query, 2);
 
-    assertEquals(2, neighbors.size());
-    neighbors.sort(Comparator.comparingInt(VPTree.Neighbor::distance));
-    assertEquals(2500, neighbors.get(0).distance());
-    assertEquals(2500, neighbors.get(1).distance());
+    assertEquals(2, neighbors.length);
+    assertEquals(2500, neighbors[0].distance());
+    assertEquals(2500, neighbors[1].distance());
   }
 
   @Test
@@ -75,12 +75,11 @@ class VPTreeTest {
     VPTree tree = new VPTree(vectors, labels, 16);
 
     short[] query = {2500, 2500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    List<VPTree.Neighbor> neighbors = tree.search(query, 2);
+    VPTree.Neighbor[] neighbors = tree.search(query, 2);
 
-    assertEquals(2, neighbors.size());
-    neighbors.sort(Comparator.comparingInt(VPTree.Neighbor::distance));
-    assertEquals(12500000, neighbors.get(0).distance());
-    assertEquals(12500000, neighbors.get(1).distance());
+    assertEquals(2, neighbors.length);
+    assertEquals(12500000, neighbors[0].distance());
+    assertEquals(12500000, neighbors[1].distance());
   }
 
   @Test
@@ -94,11 +93,10 @@ class VPTreeTest {
     VPTree tree = new VPTree(vectors, labels, 16);
 
     short[] query = {2500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    List<VPTree.Neighbor> neighbors = tree.search(query, 5);
+    VPTree.Neighbor[] neighbors = tree.search(query, 5);
 
-    assertEquals(5, neighbors.size());
-    neighbors.sort(Comparator.comparingInt(VPTree.Neighbor::distance));
-    assertTrue(neighbors.get(0).distance() <= neighbors.get(1).distance());
+    assertEquals(5, neighbors.length);
+    assertTrue(neighbors[0].distance() <= neighbors[1].distance());
   }
 
   @Test
@@ -111,10 +109,10 @@ class VPTreeTest {
     VPTree tree = new VPTree(vectors, labels, 16);
 
     short[] query = {1000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    List<VPTree.Neighbor> neighbors = tree.search(query, 2);
+    VPTree.Neighbor[] neighbors = tree.search(query, 2);
 
-    assertEquals(2, neighbors.size());
-    long fraudCount = neighbors.stream().filter(VPTree.Neighbor::label).count();
+    assertEquals(2, neighbors.length);
+    long fraudCount = Arrays.stream(neighbors).filter(VPTree.Neighbor::label).count();
     assertEquals(1, fraudCount);
   }
 }

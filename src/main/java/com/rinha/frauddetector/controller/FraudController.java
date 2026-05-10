@@ -3,7 +3,8 @@ package com.rinha.frauddetector.controller;
 import com.rinha.frauddetector.domain.FraudDetectionService;
 import com.rinha.frauddetector.domain.FraudScore;
 import com.rinha.frauddetector.dto.FraudRequest;
-import com.rinha.frauddetector.dto.FraudResponse;
+
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,9 +20,10 @@ public class FraudController {
     }
 
     @PostMapping("/fraud-score")
-    public ResponseEntity<FraudResponse> fraudScore(@RequestBody FraudRequest request) {
+    public ResponseEntity<byte[]> fraudScore(@RequestBody FraudRequest request) {
         FraudScore score = fraudDetectionService.evaluate(request);
-
-        return ResponseEntity.ok(new FraudResponse(score.approved(), score.score()));
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(score.responseBytes());
     }
 }

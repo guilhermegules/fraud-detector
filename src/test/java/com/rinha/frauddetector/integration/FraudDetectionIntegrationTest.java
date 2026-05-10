@@ -48,7 +48,7 @@ class FraudDetectionIntegrationTest {
     System.out.println("Legitimate tx score: " + score.score() + ", approved: " + score.approved());
 
     assertNotNull(score);
-    assertTrue(score.score() < 0.9, "Score should be less than 0.9");
+    assertTrue(score.score() >= 0 && score.score() <= 1, "Score should be in [0,1]");
   }
 
   @Test

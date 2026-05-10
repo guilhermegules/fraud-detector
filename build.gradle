@@ -37,5 +37,8 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 tasks.named('bootRun').configure {
-	jvmArgs('--add-modules', 'jdk.incubator.vector')
+	jvmArgs(
+		'--add-modules', 'jdk.incubator.vector',
+		'-XX:CompileThreshold=1000'
+	)
 }

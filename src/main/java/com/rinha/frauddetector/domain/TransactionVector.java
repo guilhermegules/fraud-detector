@@ -10,7 +10,6 @@ public record TransactionVector(short[] features) {
   private static final int VECTOR_SIZE = 16;
   private static final int RAW_SIZE = 14;
   private static final int SCALE = 10_000;
-  private static final short MISSING = -10000;
 
   private static final short[] HOURLUT;
   private static final short[] DOWLUT;
@@ -89,8 +88,8 @@ public record TransactionVector(short[] features) {
       v[5] = q(clamp(minutes / constants.max_minutes()));
       v[6] = q(clamp(lastTx.km_from_current() / constants.max_km()));
     } else {
-      v[5] = MISSING;
-      v[6] = MISSING;
+      v[5] = (short) -SCALE;
+      v[6] = (short) -SCALE;
     }
 
     v[7] = q(clamp(request.terminal().km_from_home() / constants.max_km()));

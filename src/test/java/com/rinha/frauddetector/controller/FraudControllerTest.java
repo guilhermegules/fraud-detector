@@ -3,7 +3,6 @@ package com.rinha.frauddetector.controller;
 import com.rinha.frauddetector.domain.FraudDetectionService;
 import com.rinha.frauddetector.domain.FraudScore;
 import com.rinha.frauddetector.dto.FraudRequest;
-import com.rinha.frauddetector.dto.FraudResponse;
 import com.rinha.frauddetector.dto.TransactionDTO;
 import com.rinha.frauddetector.dto.CustomerDTO;
 import com.rinha.frauddetector.dto.MerchantDTO;
@@ -15,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -46,9 +46,10 @@ class FraudControllerTest {
     when(fraudDetectionService.evaluate(any(FraudRequest.class)))
         .thenReturn(new FraudScore(true, 0.2f));
 
-    ResponseEntity<FraudResponse> response = fraudController.fraudScore(createMockRequest());
-    assertTrue(response.getBody().approved());
-    assertEquals(0.2f, response.getBody().fraud_score(), 0.001f);
+    ResponseEntity<byte[]> response = fraudController.fraudScore(createMockRequest());
+    String body = new String(response.getBody(), StandardCharsets.UTF_8);
+    assertTrue(body.contains("\"approved\":true"));
+    assertTrue(body.contains("\"fraud_score\":0.2"));
   }
 
   @Test
@@ -56,9 +57,10 @@ class FraudControllerTest {
     when(fraudDetectionService.evaluate(any(FraudRequest.class)))
         .thenReturn(new FraudScore(false, 0.8f));
 
-    ResponseEntity<FraudResponse> response = fraudController.fraudScore(createMockRequest());
-    assertFalse(response.getBody().approved());
-    assertEquals(0.8f, response.getBody().fraud_score(), 0.001f);
+    ResponseEntity<byte[]> response = fraudController.fraudScore(createMockRequest());
+    String body = new String(response.getBody(), StandardCharsets.UTF_8);
+    assertFalse(body.contains("\"approved\":true"));
+    assertTrue(body.contains("\"fraud_score\":0.8"));
   }
 
   @Test
@@ -66,8 +68,9 @@ class FraudControllerTest {
     when(fraudDetectionService.evaluate(any(FraudRequest.class)))
         .thenReturn(FraudScore.SAFE);
 
-    ResponseEntity<FraudResponse> response = fraudController.fraudScore(createMockRequest());
-    assertTrue(response.getBody().approved());
-    assertEquals(0.0f, response.getBody().fraud_score(), 0.001f);
+    ResponseEntity<byte[]> response = fraudController.fraudScore(createMockRequest());
+    String body = new String(response.getBody(), StandardCharsets.UTF_8);
+    assertTrue(body.contains("\"approved\":true"));
+    assertTrue(body.contains("\"fraud_score\":0.0"));
   }
 }

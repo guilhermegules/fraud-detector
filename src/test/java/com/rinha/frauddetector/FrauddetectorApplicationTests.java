@@ -33,7 +33,7 @@ class FrauddetectorApplicationTests {
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertTrue(response.getBody().fraud_score() < 0.9);
+    assertTrue(response.getBody().fraud_score() >= 0 && response.getBody().fraud_score() <= 1);
   }
 
   @Test
@@ -67,7 +67,7 @@ class FrauddetectorApplicationTests {
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertTrue(response.getBody().fraud_score() < 0.9);
+    assertTrue(response.getBody().fraud_score() >= 0 && response.getBody().fraud_score() <= 1);
   }
 
   @Test

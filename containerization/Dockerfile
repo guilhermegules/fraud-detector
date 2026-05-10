@@ -25,6 +25,7 @@ ENV JAVA_OPTS="\
 -XX:+AlwaysPreTouch \
 -XX:MaxRAMPercentage=75 \
 -Xss1m \
+-XX:CompileThreshold=1000 \
 --add-modules=jdk.incubator.vector \
 "
 
