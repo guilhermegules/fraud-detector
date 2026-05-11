@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 
+import static com.rinha.frauddetector.config.Constants.WEIGHTS;
+
 public class ReferenceLoader {
 
   private static final int DIM = 16;
@@ -52,9 +54,16 @@ public class ReferenceLoader {
       for (int i = 0; i < size; i++) {
         int base = i * DIM;
         for (int j = 0; j < DIM; j++) {
-          vectors[base + j] = readShortLE(in);
+          short val = readShortLE(in);
+          if ((j == 5 || j == 6) && val == -10000) val = 0;
+          vectors[base + j] = (short) Math.round(val * WEIGHTS[j]);
         }
-        labels[i] = in.readByte() != 0;
+      }
+
+      byte[] rawLabels = new byte[size];
+      in.readFully(rawLabels);
+      for (int i = 0; i < size; i++) {
+        labels[i] = rawLabels[i] != 0;
       }
     }
 

@@ -3,12 +3,12 @@ FROM eclipse-temurin:25-jdk AS build
 
 WORKDIR /app
 
-COPY ../gradlew gradlew
-COPY ../gradle gradle
-COPY ../build.gradle settings.gradle ./
+COPY gradlew gradlew
+COPY gradle gradle
+COPY build.gradle settings.gradle ./
 RUN ./gradlew dependencies --no-daemon
 
-COPY ../src src
+COPY src src
 RUN ./gradlew bootJar --no-daemon -x test
 
 # ---- Runtime stage ----
@@ -21,6 +21,9 @@ COPY --from=build /app/build/libs/*.jar app.jar
 ENV JAVA_OPTS="\
 -Xms120m \
 -Xmx120m \
+-XX:+UseSerialGC \
+-XX:+AlwaysPreTouch \
+-Xlog:gc,gc+pause=info:file=/tmp/gc.log:time,uptime,level,tags \
 --add-modules=jdk.incubator.vector \
 "
 

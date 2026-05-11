@@ -5,6 +5,8 @@ import com.rinha.frauddetector.dto.FraudRequest;
 import java.util.Arrays;
 import java.util.Map;
 
+import static com.rinha.frauddetector.config.Constants.WEIGHTS;
+
 public record TransactionVector(short[] features) {
 
   private static final int VECTOR_SIZE = 16;
@@ -88,8 +90,8 @@ public record TransactionVector(short[] features) {
       v[5] = q(clamp(minutes / constants.max_minutes()));
       v[6] = q(clamp(lastTx.km_from_current() / constants.max_km()));
     } else {
-      v[5] = (short) -SCALE;
-      v[6] = (short) -SCALE;
+      v[5] = 0;
+      v[6] = 0;
     }
 
     v[7] = q(clamp(request.terminal().km_from_home() / constants.max_km()));
@@ -97,9 +99,9 @@ public record TransactionVector(short[] features) {
 
     v[9] = request.terminal().is_online() ? (short) SCALE : (short) 0;
     v[10] = request.terminal().card_present() ? (short) SCALE : (short) 0;
-    v[11] = request.customer().known_merchants().contains(request.merchant().id()) ? (short) 0 : (short) SCALE;
+    v[11] = request.customer().known_merchants().contains(request.merchant().id()) ? (short) 0 : (short) Math.round(WEIGHTS[11] * SCALE);
 
-    v[12] = q(clamp(mccRiskMap.getOrDefault(request.merchant().mcc(), 0.5f)));
+    v[12] = q(clamp(mccRiskMap.getOrDefault(request.merchant().mcc(), 0.5f) * WEIGHTS[12]));
     v[13] = q(clamp(request.merchant().avg_amount() / constants.max_merchant_avg_amount()));
 
     v[14] = 0;

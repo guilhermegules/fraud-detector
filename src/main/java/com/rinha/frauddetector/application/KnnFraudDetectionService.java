@@ -18,6 +18,12 @@ public class KnnFraudDetectionService implements FraudDetectionService {
   private final ReferenceLoader referenceLoader;
 
   private static final ThreadLocal<short[]> VECTOR_BUFFER = ThreadLocal.withInitial(() -> new short[16]);
+  private static final ThreadLocal<VPTree.Neighbor[]> HEAP_BUFFER =
+      ThreadLocal.withInitial(() -> {
+        var h = new VPTree.Neighbor[5];
+        for (int i = 0; i < 5; i++) h[i] = new VPTree.Neighbor();
+        return h;
+      });
 
   public KnnFraudDetectionService(ReferenceLoader referenceLoader) {
     this.referenceLoader = referenceLoader;
@@ -38,11 +44,12 @@ public class KnnFraudDetectionService implements FraudDetectionService {
         referenceLoader.getMccRiskMap(),
         vector);
 
-    var neighbors = tree.search(vector, 5);
+    var heap = HEAP_BUFFER.get();
+    tree.search(vector, 5, heap);
     int fraudNeighbors = 0;
     for (int i = 0; i < 5; i++) {
-      if (neighbors[i].distance() == Integer.MAX_VALUE) break;
-      if (neighbors[i].label()) fraudNeighbors++;
+      if (heap[i].distance() == Integer.MAX_VALUE) break;
+      if (heap[i].label()) fraudNeighbors++;
     }
 
     return FraudScore.fromFraudCount(fraudNeighbors);
@@ -50,13 +57,15 @@ public class KnnFraudDetectionService implements FraudDetectionService {
 
   private void warmup() {
     var random = new Random(42);
-    short[] vector = new short[16];
+    var vector = new short[16];
+    var heap = new VPTree.Neighbor[5];
+    for (int i = 0; i < 5; i++) heap[i] = new VPTree.Neighbor();
 
-    for (int q = 0; q < 5000; q++) {
+    for (int q = 0; q < 50000; q++) {
       for (int j = 0; j < 16; j++) {
         vector[j] = (short) random.nextInt(10001);
       }
-      tree.search(vector, 5);
+      tree.search(vector, 5, heap);
     }
   }
 }

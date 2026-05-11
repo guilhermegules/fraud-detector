@@ -125,9 +125,8 @@ public class VPTree {
          + hi.mul(hi).reduceLanes(VectorOperators.ADD);
   }
 
-  public Neighbor[] search(short[] target, int k) {
-    Neighbor[] heap = new Neighbor[k];
-    for (int i = 0; i < k; i++) heap[i] = new Neighbor(Integer.MAX_VALUE, false);
+  public void search(short[] target, int k, Neighbor[] heap) {
+    for (int i = 0; i < k; i++) { heap[i].distance = Integer.MAX_VALUE; heap[i].label = false; }
 
     if (count > 0) {
       searchNode(rootIdx, target, heap);
@@ -138,15 +137,17 @@ public class VPTree {
       if (heap[i].distance == Integer.MAX_VALUE) { n = i; break; }
     }
     for (int i = 1; i < n; i++) {
-      Neighbor key = heap[i];
+      int dist = heap[i].distance;
+      boolean label = heap[i].label;
       int j = i - 1;
-      while (j >= 0 && heap[j].distance > key.distance) {
-        heap[j + 1] = heap[j];
+      while (j >= 0 && heap[j].distance > dist) {
+        heap[j + 1].distance = heap[j].distance;
+        heap[j + 1].label = heap[j].label;
         j--;
       }
-      heap[j + 1] = key;
+      heap[j + 1].distance = dist;
+      heap[j + 1].label = label;
     }
-    return heap;
   }
 
   private void searchNode(int nodeIdx, short[] target, Neighbor[] heap) {
@@ -159,10 +160,11 @@ public class VPTree {
         if (dist < heap[k - 1].distance) {
           int j = k - 2;
           while (j >= 0 && heap[j].distance > dist) {
-            heap[j + 1] = heap[j];
+            heap[j + 1].distance = heap[j].distance;
+            heap[j + 1].label = heap[j].label;
             j--;
           }
-          heap[j + 1] = new Neighbor(dist, labels[idx]);
+          heap[j + 1].set(dist, labels[idx]);
         }
       }
       return;
@@ -174,16 +176,16 @@ public class VPTree {
     if (dist < heap[k - 1].distance) {
       int j = k - 2;
       while (j >= 0 && heap[j].distance > dist) {
-        heap[j + 1] = heap[j];
+        heap[j + 1].distance = heap[j].distance;
+        heap[j + 1].label = heap[j].label;
         j--;
       }
-      heap[j + 1] = new Neighbor(dist, labels[vp]);
+      heap[j + 1].set(dist, labels[vp]);
     }
 
     int threshold = thresholds[nodeIdx];
-    int bestDist = heap[k - 1].distance;
 
-    if (dist < threshold) {
+      if (dist < threshold) {
       searchNode(leftChild[nodeIdx], target, heap);
       if (heap[k - 1].distance > threshold - dist) {
         searchNode(rightChild[nodeIdx], target, heap);
@@ -200,7 +202,9 @@ public class VPTree {
     public int distance;
     public boolean label;
 
-    public Neighbor(int distance, boolean label) {
+    public Neighbor() {}
+
+    public void set(int distance, boolean label) {
       this.distance = distance;
       this.label = label;
     }

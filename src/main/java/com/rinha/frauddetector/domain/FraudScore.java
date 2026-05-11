@@ -20,10 +20,16 @@ public record FraudScore(boolean approved, float score) {
     return arr;
   }
 
+  private static final FraudScore[] SCORES = new FraudScore[6];
+  static {
+    for (int n = 0; n <= 5; n++) {
+      float s = n / 5.0f;
+      SCORES[n] = new FraudScore(s < THRESHOLD, s);
+    }
+  }
+
   public static FraudScore fromFraudCount(int fraudNeighbors) {
-    int n = Math.min(fraudNeighbors, 5);
-    float s = n / 5.0f;
-    return new FraudScore(s < THRESHOLD, s);
+    return SCORES[Math.min(fraudNeighbors, 5)];
   }
 
   public byte[] responseBytes() {
