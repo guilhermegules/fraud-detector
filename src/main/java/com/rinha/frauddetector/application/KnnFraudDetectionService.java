@@ -20,8 +20,8 @@ public class KnnFraudDetectionService implements FraudDetectionService {
   private static final ThreadLocal<short[]> VECTOR_BUFFER = ThreadLocal.withInitial(() -> new short[16]);
   private static final ThreadLocal<VPTree.Neighbor[]> HEAP_BUFFER =
       ThreadLocal.withInitial(() -> {
-        var h = new VPTree.Neighbor[5];
-        for (int i = 0; i < 5; i++) h[i] = new VPTree.Neighbor();
+        var h = new VPTree.Neighbor[FraudScore.K];
+        for (int i = 0; i < FraudScore.K; i++) h[i] = new VPTree.Neighbor();
         return h;
       });
 
@@ -45,9 +45,9 @@ public class KnnFraudDetectionService implements FraudDetectionService {
         vector);
 
     var heap = HEAP_BUFFER.get();
-    tree.search(vector, 5, heap);
+    tree.search(vector, FraudScore.K, heap);
     int fraudNeighbors = 0;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < FraudScore.K; i++) {
       if (heap[i].distance() == Integer.MAX_VALUE) break;
       if (heap[i].label()) fraudNeighbors++;
     }
@@ -58,14 +58,14 @@ public class KnnFraudDetectionService implements FraudDetectionService {
   private void warmup() {
     var random = new Random(42);
     var vector = new short[16];
-    var heap = new VPTree.Neighbor[5];
-    for (int i = 0; i < 5; i++) heap[i] = new VPTree.Neighbor();
+    var heap = new VPTree.Neighbor[FraudScore.K];
+    for (int i = 0; i < FraudScore.K; i++) heap[i] = new VPTree.Neighbor();
 
     for (int q = 0; q < 50000; q++) {
       for (int j = 0; j < 16; j++) {
         vector[j] = (short) random.nextInt(10001);
       }
-      tree.search(vector, 5, heap);
+      tree.search(vector, FraudScore.K, heap);
     }
   }
 }

@@ -14,9 +14,9 @@ class FraudScoreTest {
 
   @Test
   void shouldCreateFromScoreLowRisk() {
-    FraudScore score = FraudScore.fromScore(0.3f);
+    FraudScore score = FraudScore.fromScore(0.2f);
     assertTrue(score.approved());
-    assertEquals(0.3f, score.score(), 0.001f);
+    assertEquals(0.2f, score.score(), 0.001f);
   }
 
   @Test

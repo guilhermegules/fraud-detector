@@ -1,12 +1,15 @@
 spring:
   application:
     name: frauddetector
+  threads:
+    virtual:
+      enabled: true
 server:
   tomcat:
     threads:
-      max: 200
-      min-spare: 20
-    max-connections: 500
-    accept-count: 200
+      max: 32
+      min-spare: 4
+    max-connections: 512
+    accept-count: 128
     connection-timeout: 30s
     max-swallow-size: -1

@@ -19,10 +19,12 @@ WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
 
 ENV JAVA_OPTS="\
--Xms120m \
+-Xms64m \
 -Xmx120m \
 -XX:+UseSerialGC \
 -XX:+AlwaysPreTouch \
+-XX:-TieredCompilation \
+-XX:CompileThreshold=1000 \
 --add-modules=jdk.incubator.vector \
 "
 

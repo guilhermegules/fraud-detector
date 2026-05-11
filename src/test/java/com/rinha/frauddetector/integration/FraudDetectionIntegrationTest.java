@@ -68,6 +68,6 @@ class FraudDetectionIntegrationTest {
 
     assertNotNull(score);
     assertFalse(score.approved(), "Fraudulent transaction should not be approved");
-    assertTrue(score.score() >= 0.6, "Score should be >= 0.6 for fraud");
+    assertTrue(score.score() >= 0.3, "Score should be >= threshold for fraud");
   }
 }
