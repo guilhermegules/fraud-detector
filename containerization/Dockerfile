@@ -23,7 +23,6 @@ ENV JAVA_OPTS="\
 -Xmx120m \
 -XX:+UseSerialGC \
 -XX:+AlwaysPreTouch \
--Xlog:gc,gc+pause=info:file=/tmp/gc.log:time,uptime,level,tags \
 --add-modules=jdk.incubator.vector \
 "
 
