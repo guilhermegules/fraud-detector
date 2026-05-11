@@ -39,7 +39,8 @@ def main():
 
             for v in vector:
                 s = int(v * SCALE)
-                s = max(0, min(SCALE, s))
+                if s > SCALE: s = SCALE
+                if s < -SCALE: s = -SCALE
                 vectors.append(s)
 
             # pad to 16 dimensions for SIMD alignment

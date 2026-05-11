@@ -8,7 +8,6 @@ x-api: &api
         cpus: "0.45"
         memory: "160MB"
 
-
 services:
 
   haproxy:
@@ -30,10 +29,12 @@ services:
   api1:
     <<: *api
     container_name: api1
+    cpuset: "0,1"
 
   api2:
     <<: *api
     container_name: api2
+    cpuset: "2,3"
 
 networks:
   default:

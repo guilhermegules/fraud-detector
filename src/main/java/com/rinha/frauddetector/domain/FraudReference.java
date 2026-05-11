@@ -1,4 +1,4 @@
 package com.rinha.frauddetector.domain;
 
-public record FraudReference(short[] vectors, boolean[] labels, int[] bucketStarts, int dim) {
+public record FraudReference(short[] vectors, boolean[] labels) {
 }

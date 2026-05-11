@@ -51,7 +51,7 @@ class ReferenceLoaderTest {
     assertNotNull(fraudReference);
     assertNotNull(fraudReference.vectors());
     assertNotNull(fraudReference.labels());
-    assertEquals(fraudReference.vectors().length / 14, fraudReference.labels().length);
+    assertEquals(fraudReference.vectors().length / 16, fraudReference.labels().length);
     assertTrue(fraudReference.vectors().length > 0);
   }
 
@@ -63,7 +63,7 @@ class ReferenceLoaderTest {
     FraudReference fraudReference = loader.getFraudReference();
     short[] vectors = fraudReference.vectors();
 
-    assertEquals(0, vectors.length % 14);
-    assertTrue(vectors.length >= 14);
+    assertEquals(0, vectors.length % 16);
+    assertTrue(vectors.length >= 16);
   }
 }

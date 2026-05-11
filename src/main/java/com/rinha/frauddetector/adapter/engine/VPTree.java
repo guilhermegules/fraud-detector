@@ -2,7 +2,8 @@ package com.rinha.frauddetector.adapter.engine;
 
 import jdk.incubator.vector.*;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Random;
 
 public class VPTree {
 
@@ -11,123 +12,130 @@ public class VPTree {
 
   private final short[] vectors;
   private final boolean[] labels;
-  private final int dim;
+  private final int count;
+  private static final int STRIDE = 16;
 
-  private final VPTreeNode root;
+  private final int[] leftChild;
+  private final int[] rightChild;
+  private final int[] thresholds;
+  private final int[] vpIdx;
+  private final int[] leafStart;
+  private final int[] leafEnd;
+  private final int[] sortedIndices;
 
-  private static final Random RANDOM = new Random();
+  private int rootIdx;
+  private int nodeCount;
+
   private static final int LEAF_SIZE = 32;
+  private static final Random RANDOM = new Random(42);
 
   public VPTree(short[] vectors, boolean[] labels, int dim) {
     this.vectors = vectors;
     this.labels = labels;
-    this.dim = dim;
+    this.count = labels.length;
 
-    int size = labels.length;
-    int[] indices = new int[size];
-    for (int i = 0; i < size; i++) indices[i] = i;
+    sortedIndices = new int[count];
+    for (int i = 0; i < count; i++) sortedIndices[i] = i;
 
-    this.root = build(indices, 0, size);
+    int maxNodes = count > 0 ? 2 * count + 1 : 1;
+    leftChild = new int[maxNodes];
+    rightChild = new int[maxNodes];
+    thresholds = new int[maxNodes];
+    vpIdx = new int[maxNodes];
+    leafStart = new int[maxNodes];
+    leafEnd = new int[maxNodes];
+
+    nodeCount = 0;
+    if (count > 0) rootIdx = build(0, count);
   }
 
-  private VPTreeNode build(int[] indices, int start, int end) {
-    if (start >= end) return null;
+  private int build(int start, int end) {
+    int nodeIdx = nodeCount++;
+    int size = end - start;
 
-    VPTreeNode node = new VPTreeNode();
-
-    if (end - start <= LEAF_SIZE) {
-      node.leafIndices = Arrays.copyOfRange(indices, start, end);
-      return node;
+    if (size <= LEAF_SIZE) {
+      leftChild[nodeIdx] = -1;
+      rightChild[nodeIdx] = -1;
+      leafStart[nodeIdx] = start;
+      leafEnd[nodeIdx] = end;
+      return nodeIdx;
     }
 
-    int vpIdx = start + RANDOM.nextInt(end - start);
-    node.index = indices[vpIdx];
-    node.label = labels[node.index];
+    int vpPos = start + RANDOM.nextInt(size);
+    int vp = sortedIndices[vpPos];
+    vpIdx[nodeIdx] = vp;
 
-    if (end - start > 1) {
-      int sampleSize = Math.min(32, end - start - 1);
-      int[] distances = new int[sampleSize];
+    sortedIndices[vpPos] = sortedIndices[start];
+    sortedIndices[start] = vp;
 
-      var vpVec = ShortVector.fromArray(SPECIES, vectors, node.index * dim);
+    int sampleSize = Math.min(64, size - 1);
+    int[] distSamples = new int[sampleSize];
+    var vpVec = ShortVector.fromArray(SPECIES, vectors, vp * STRIDE);
 
-      for (int i = 0; i < sampleSize; i++) {
-        int idx = start + RANDOM.nextInt(end - start);
-        if (idx == vpIdx) { i--; continue; }
-        distances[i] = distanceSIMD(vpVec, indices[idx]);
-      }
-
-      Arrays.sort(distances);
-      node.threshold = distances[sampleSize / 2];
-
-      int leftSize = 0;
-      for (int i = start; i < end; i++) {
-        if (i == vpIdx) continue;
-        if (distanceSIMD(vpVec, indices[i]) < node.threshold) {
-          leftSize++;
-        }
-      }
-
-      int[] leftIndices = new int[leftSize];
-      int[] rightIndices = new int[end - start - 1 - leftSize];
-      int li = 0, ri = 0;
-
-      for (int i = start; i < end; i++) {
-        if (i == vpIdx) continue;
-        int d = distanceSIMD(vpVec, indices[i]);
-        if (d < node.threshold) {
-          leftIndices[li++] = indices[i];
-        } else {
-          rightIndices[ri++] = indices[i];
-        }
-      }
-
-      node.left = build(leftIndices, 0, li);
-      node.right = build(rightIndices, 0, ri);
+    for (int i = 0; i < sampleSize; i++) {
+      int idx = start + 1 + RANDOM.nextInt(size - 1);
+      distSamples[i] = distance(vpVec, sortedIndices[idx]);
     }
 
-    return node;
+    Arrays.sort(distSamples);
+    int median = distSamples[sampleSize / 2];
+    thresholds[nodeIdx] = median;
+
+    int mid = partition(start + 1, end, vp, median);
+
+    leftChild[nodeIdx] = build(start + 1, mid);
+    rightChild[nodeIdx] = build(mid, end);
+    return nodeIdx;
   }
 
-  private int distanceSIMD(short[] a, int bIndex) {
-    int base = bIndex * dim;
-    var va = ShortVector.fromArray(SPECIES, a, 0);
-    var vb = ShortVector.fromArray(SPECIES, vectors, base);
-    var vd = va.sub(vb);
-    var vLo = (IntVector) vd.convertShape(VectorOperators.S2I, INT_SPECIES, 0);
-    var vHi = (IntVector) vd.convertShape(VectorOperators.S2I, INT_SPECIES, 1);
-    return vLo.mul(vLo).reduceLanes(VectorOperators.ADD)
-         + vHi.mul(vHi).reduceLanes(VectorOperators.ADD);
+  private int partition(int start, int end, int vp, int median) {
+    int left = start;
+    int right = end - 1;
+    var vpVec = ShortVector.fromArray(SPECIES, vectors, vp * STRIDE);
+
+    while (true) {
+      while (left <= right && distance(vpVec, sortedIndices[left]) < median) left++;
+      while (left <= right && distance(vpVec, sortedIndices[right]) >= median) right--;
+      if (left >= right) break;
+      int tmp = sortedIndices[left];
+      sortedIndices[left] = sortedIndices[right];
+      sortedIndices[right] = tmp;
+      left++;
+      right--;
+    }
+    return left;
   }
 
-  private int distanceSIMD(ShortVector va, int bIndex) {
-    int base = bIndex * dim;
-    var vb = ShortVector.fromArray(SPECIES, vectors, base);
-    var vd = va.sub(vb);
-    var vLo = (IntVector) vd.convertShape(VectorOperators.S2I, INT_SPECIES, 0);
-    var vHi = (IntVector) vd.convertShape(VectorOperators.S2I, INT_SPECIES, 1);
-    return vLo.mul(vLo).reduceLanes(VectorOperators.ADD)
-         + vHi.mul(vHi).reduceLanes(VectorOperators.ADD);
+  private int distance(short[] query, int dataIdx) {
+    var va = ShortVector.fromArray(SPECIES, query, 0);
+    var vb = ShortVector.fromArray(SPECIES, vectors, dataIdx * STRIDE);
+    var diff = va.sub(vb);
+    var lo = (IntVector) diff.convertShape(VectorOperators.S2I, INT_SPECIES, 0);
+    var hi = (IntVector) diff.convertShape(VectorOperators.S2I, INT_SPECIES, 1);
+    return lo.mul(lo).reduceLanes(VectorOperators.ADD)
+         + hi.mul(hi).reduceLanes(VectorOperators.ADD);
+  }
+
+  private int distance(ShortVector va, int dataIdx) {
+    var vb = ShortVector.fromArray(SPECIES, vectors, dataIdx * STRIDE);
+    var diff = va.sub(vb);
+    var lo = (IntVector) diff.convertShape(VectorOperators.S2I, INT_SPECIES, 0);
+    var hi = (IntVector) diff.convertShape(VectorOperators.S2I, INT_SPECIES, 1);
+    return lo.mul(lo).reduceLanes(VectorOperators.ADD)
+         + hi.mul(hi).reduceLanes(VectorOperators.ADD);
   }
 
   public Neighbor[] search(short[] target, int k) {
     Neighbor[] heap = new Neighbor[k];
-    for (int i = 0; i < k; i++) {
-      heap[i] = new Neighbor(Integer.MAX_VALUE, false);
-    }
-    if (root != null) {
-      search(root, target, heap);
-    }
-    sortAscending(heap);
-    return heap;
-  }
+    for (int i = 0; i < k; i++) heap[i] = new Neighbor(Integer.MAX_VALUE, false);
 
-  private static void sortAscending(Neighbor[] heap) {
-    int n = heap.length;
-    for (int i = 1; i < n; i++) {
-      if (heap[i].distance == Integer.MAX_VALUE) {
-        n = i;
-        break;
-      }
+    if (count > 0) {
+      searchNode(rootIdx, target, heap);
+    }
+
+    int n = k;
+    for (int i = 1; i < k; i++) {
+      if (heap[i].distance == Integer.MAX_VALUE) { n = i; break; }
     }
     for (int i = 1; i < n; i++) {
       Neighbor key = heap[i];
@@ -138,60 +146,54 @@ public class VPTree {
       }
       heap[j + 1] = key;
     }
+    return heap;
   }
 
-  private void search(VPTreeNode node, short[] target, Neighbor[] heap) {
+  private void searchNode(int nodeIdx, short[] target, Neighbor[] heap) {
     int k = heap.length;
 
-    if (node.leafIndices != null) {
-      for (int idx : node.leafIndices) {
-        int dist = distanceSIMD(target, idx);
+    if (leftChild[nodeIdx] == -1) {
+      for (int i = leafStart[nodeIdx]; i < leafEnd[nodeIdx]; i++) {
+        int idx = sortedIndices[i];
+        int dist = distance(target, idx);
         if (dist < heap[k - 1].distance) {
-          int i = k - 2;
-          while (i >= 0 && heap[i].distance > dist) {
-            heap[i + 1] = heap[i];
-            i--;
+          int j = k - 2;
+          while (j >= 0 && heap[j].distance > dist) {
+            heap[j + 1] = heap[j];
+            j--;
           }
-          heap[i + 1] = new Neighbor(dist, labels[idx]);
+          heap[j + 1] = new Neighbor(dist, labels[idx]);
         }
       }
       return;
     }
 
-    int dist = distanceSIMD(target, node.index);
+    int vp = vpIdx[nodeIdx];
+    int dist = distance(target, vp);
 
     if (dist < heap[k - 1].distance) {
-      int i = k - 2;
-      while (i >= 0 && heap[i].distance > dist) {
-        heap[i + 1] = heap[i];
-        i--;
+      int j = k - 2;
+      while (j >= 0 && heap[j].distance > dist) {
+        heap[j + 1] = heap[j];
+        j--;
       }
-      heap[i + 1] = new Neighbor(dist, node.label);
+      heap[j + 1] = new Neighbor(dist, labels[vp]);
     }
 
-    if (node.left == null && node.right == null) return;
+    int threshold = thresholds[nodeIdx];
+    int bestDist = heap[k - 1].distance;
 
-    double threshold = node.threshold;
     if (dist < threshold) {
-      search(node.left, target, heap);
-      if (heap[k - 1].distance > Math.abs(dist - threshold)) {
-        search(node.right, target, heap);
+      searchNode(leftChild[nodeIdx], target, heap);
+      if (heap[k - 1].distance > threshold - dist) {
+        searchNode(rightChild[nodeIdx], target, heap);
       }
     } else {
-      search(node.right, target, heap);
-      if (heap[k - 1].distance > Math.abs(dist - threshold)) {
-        search(node.left, target, heap);
+      searchNode(rightChild[nodeIdx], target, heap);
+      if (heap[k - 1].distance > dist - threshold) {
+        searchNode(leftChild[nodeIdx], target, heap);
       }
     }
-  }
-
-  private static class VPTreeNode {
-    int index;
-    boolean label;
-    double threshold;
-    int[] leafIndices;
-    VPTreeNode left;
-    VPTreeNode right;
   }
 
   public static class Neighbor {
