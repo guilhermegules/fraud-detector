@@ -2,11 +2,10 @@ x-api: &api
   image: guilhermegules/fraud-detector-rinha:latest
   environment:
     - SERVER_PORT=8080
-  deploy:
-    resources:
-      limits:
-        cpus: "0.45"
-        memory: "160MB"
+  mem_limit: 160m
+  cpus: "0.45"
+  networks:
+    - rinha-net
 
 services:
 
@@ -17,11 +16,10 @@ services:
       - "9999:9999"
     volumes:
       - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-    deploy:
-      resources:
-        limits:
-          cpus: "0.1"
-          memory: "30MB"
+    mem_limit: 30m
+    cpus: "0.1"
+    networks:
+      - rinha-net
     depends_on:
       - api1
       - api2
@@ -29,13 +27,11 @@ services:
   api1:
     <<: *api
     container_name: api1
-    cpuset: "0,1"
 
   api2:
     <<: *api
     container_name: api2
-    cpuset: "2,3"
 
 networks:
-  default:
+  rinha-net:
     driver: bridge
