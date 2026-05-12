@@ -123,8 +123,8 @@ class TransactionVectorTest {
         TransactionVector.fromRequest(request, CONSTANTS, java.util.Map.of("5411", 0.15f));
     
     short[] features = vector.features();
-    assertEquals(0, features[5], 1);
-    assertEquals(0, features[6], 1);
+    assertEquals(-10000, features[5], 1);
+    assertEquals(-10000, features[6], 1);
   }
 
   @Test

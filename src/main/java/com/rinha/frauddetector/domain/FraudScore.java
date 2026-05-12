@@ -4,8 +4,8 @@ import java.nio.charset.StandardCharsets;
 
 public record FraudScore(boolean approved, float score) {
 
-  public static final int K = 15;
-  private static final float THRESHOLD = 0.3f;
+  public static final int K = 5;
+  private static final float THRESHOLD = 0.6f;
 
   public static final FraudScore SAFE = new FraudScore(true, 0.0f);
 

@@ -55,7 +55,6 @@ public class ReferenceLoader {
         int base = i * DIM;
         for (int j = 0; j < DIM; j++) {
           short val = readShortLE(in);
-          if ((j == 5 || j == 6) && val == -10000) val = 0;
           vectors[base + j] = (short) Math.round(val * WEIGHTS[j]);
         }
       }
