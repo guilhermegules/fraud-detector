@@ -83,8 +83,8 @@ class TransactionVectorTest {
     assertEquals(500, features[2], 10);
     assertEquals(7826, features[3], 1);
     assertEquals(5000, features[4], 1);
-    assertEquals(0, features[5], 1);
-    assertEquals(0, features[6], 1);
+    assertEquals(-10000, features[5], 1);
+    assertEquals(-10000, features[6], 1);
   }
 
   private FraudRequest createSampleRequest(

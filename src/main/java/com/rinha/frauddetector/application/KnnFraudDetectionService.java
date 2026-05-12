@@ -91,11 +91,17 @@ public class KnnFraudDetectionService implements FraudDetectionService {
           new CustomerDTO(100f, 1, List.of()),
           new MerchantDTO("MERC-555", "1234", 150f),
           new TerminalDTO(true, false, 500f),
+          null),
+      new FraudRequest("warmup-5",
+          new TransactionDTO(5000f, 6, "2026-03-11T22:30:00Z"),
+          new CustomerDTO(0f, 20, List.of()),
+          new MerchantDTO("MERC-999", "7995", 6000f),
+          new TerminalDTO(true, true, 900f),
           null)
     };
 
     for (int p = 0; p < 2000; p++) {
-      warmupPayload(payloads[p % 4], constants, mccRiskMap, vector, heap);
+      warmupPayload(payloads[p % 5], constants, mccRiskMap, vector, heap);
     }
 
     for (int q = 0; q < 48000; q++) {

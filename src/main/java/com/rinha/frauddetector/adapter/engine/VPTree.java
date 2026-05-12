@@ -106,16 +106,6 @@ public class VPTree {
     return left;
   }
 
-  private int distance(short[] query, int dataIdx) {
-    var va = ShortVector.fromArray(SPECIES, query, 0);
-    var vb = ShortVector.fromArray(SPECIES, vectors, dataIdx * STRIDE);
-    var diff = va.sub(vb);
-    var lo = (IntVector) diff.convertShape(VectorOperators.S2I, INT_SPECIES, 0);
-    var hi = (IntVector) diff.convertShape(VectorOperators.S2I, INT_SPECIES, 1);
-    return lo.mul(lo).reduceLanes(VectorOperators.ADD)
-         + hi.mul(hi).reduceLanes(VectorOperators.ADD);
-  }
-
   private int distance(ShortVector va, int dataIdx) {
     var vb = ShortVector.fromArray(SPECIES, vectors, dataIdx * STRIDE);
     var diff = va.sub(vb);
@@ -126,37 +116,21 @@ public class VPTree {
   }
 
   public void search(short[] target, int k, Neighbor[] heap) {
-    for (int i = 0; i < k; i++) { heap[i].distance = Integer.MAX_VALUE; heap[i].label = false; }
+    for (int i = 0; i < k; i++) heap[i].set(Integer.MAX_VALUE, false);
 
     if (count > 0) {
-      searchNode(rootIdx, target, heap);
-    }
-
-    int n = k;
-    for (int i = 1; i < k; i++) {
-      if (heap[i].distance == Integer.MAX_VALUE) { n = i; break; }
-    }
-    for (int i = 1; i < n; i++) {
-      int dist = heap[i].distance;
-      boolean label = heap[i].label;
-      int j = i - 1;
-      while (j >= 0 && heap[j].distance > dist) {
-        heap[j + 1].distance = heap[j].distance;
-        heap[j + 1].label = heap[j].label;
-        j--;
-      }
-      heap[j + 1].distance = dist;
-      heap[j + 1].label = label;
+      var queryVec = ShortVector.fromArray(SPECIES, target, 0);
+      searchNode(rootIdx, queryVec, heap);
     }
   }
 
-  private void searchNode(int nodeIdx, short[] target, Neighbor[] heap) {
+  private void searchNode(int nodeIdx, ShortVector queryVec, Neighbor[] heap) {
     int k = heap.length;
 
     if (leftChild[nodeIdx] == -1) {
       for (int i = leafStart[nodeIdx]; i < leafEnd[nodeIdx]; i++) {
         int idx = sortedIndices[i];
-        int dist = distance(target, idx);
+        int dist = distance(queryVec, idx);
         if (dist < heap[k - 1].distance) {
           int j = k - 2;
           while (j >= 0 && heap[j].distance > dist) {
@@ -171,7 +145,7 @@ public class VPTree {
     }
 
     int vp = vpIdx[nodeIdx];
-    int dist = distance(target, vp);
+    int dist = distance(queryVec, vp);
 
     if (dist < heap[k - 1].distance) {
       int j = k - 2;
@@ -185,15 +159,15 @@ public class VPTree {
 
     int threshold = thresholds[nodeIdx];
 
-      if (dist < threshold) {
-      searchNode(leftChild[nodeIdx], target, heap);
+    if (dist < threshold) {
+      searchNode(leftChild[nodeIdx], queryVec, heap);
       if (heap[k - 1].distance > threshold - dist) {
-        searchNode(rightChild[nodeIdx], target, heap);
+        searchNode(rightChild[nodeIdx], queryVec, heap);
       }
     } else {
-      searchNode(rightChild[nodeIdx], target, heap);
+      searchNode(rightChild[nodeIdx], queryVec, heap);
       if (heap[k - 1].distance > dist - threshold) {
-        searchNode(leftChild[nodeIdx], target, heap);
+        searchNode(leftChild[nodeIdx], queryVec, heap);
       }
     }
   }

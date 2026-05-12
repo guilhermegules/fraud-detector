@@ -11,7 +11,7 @@ public record TransactionVector(short[] features) {
 
   private static final int VECTOR_SIZE = 16;
   private static final int RAW_SIZE = 14;
-  private static final int SCALE = 10_000;
+  private static final int SCALE = 8192;
 
   private static final short[] HOURLUT;
   private static final short[] DOWLUT;
@@ -77,7 +77,7 @@ public record TransactionVector(short[] features) {
     v[1] = q(clamp(request.transaction().installments() / constants.max_installments()));
 
     float avgAmt = request.customer().avg_amount();
-    v[2] = q(clamp((avgAmt > 0 ? request.transaction().amount() / avgAmt : 0f) / constants.amount_vs_avg_ratio()));
+    v[2] = q(avgAmt > 0f ? clamp((request.transaction().amount() / avgAmt) / constants.amount_vs_avg_ratio()) : 1f);
 
     v[3] = HOURLUT[hour];
     v[4] = DOWLUT[dow];
@@ -90,8 +90,8 @@ public record TransactionVector(short[] features) {
       v[5] = q(clamp(minutes / constants.max_minutes()));
       v[6] = q(clamp(lastTx.km_from_current() / constants.max_km()));
     } else {
-      v[5] = 0;
-      v[6] = 0;
+      v[5] = (short) -SCALE;
+      v[6] = (short) -SCALE;
     }
 
     v[7] = q(clamp(request.terminal().km_from_home() / constants.max_km()));

@@ -8,72 +8,81 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 
-SAMPLE_RATE = float(sys.argv[1]) if len(sys.argv) > 1 else 0.20
-RANDOM_SEED = 42
+resources_path = Path(sys.argv[1]) if len(sys.argv) > 1 else SCRIPT_DIR.parent / "external-data"
+k = int(sys.argv[2]) if len(sys.argv) > 2 else 0
 
 FILE_SIGNATURE = 0x52524546  # "RREF"
-VERSION = 2  # 14-dim → 16-dim padded
-DIM = 16  # padded from 14 for SIMD alignment
-SCALE = 10000
+VERSION = 2
+DIM = 16
+SCALE = 8192
+
+
+def quantize(v: float) -> int:
+    q = round(v * SCALE)
+    if q > 32767:
+        q = 32767
+    elif q < -32768:
+        q = -32768
+    return q
+
+
+def stratified_sample(vectors, n, rng):
+    if n >= len(vectors):
+        return vectors
+    indices = list(range(len(vectors)))
+    rng.shuffle(indices)
+    return [vectors[i] for i in indices[:n]]
+
 
 def main():
-    random.seed(RANDOM_SEED)
+    print(f"Loading references from {resources_path}...")
 
-    vectors = []
-    labels = []
-    fraud_count = 0
-    legit_count = 0
-
-    print(f"Loading references with SAMPLE_RATE={SAMPLE_RATE}...")
-
-    with gzip.open(SCRIPT_DIR / "../external-data/references.json.gz", "rt") as f:
+    with gzip.open(resources_path / "references.json.gz", "rt") as f:
         data = json.load(f)
 
-        for obj in data:
-            vector = obj["vector"]
-            is_fraud = obj["label"] == "fraud"
+    print(f"Loaded {len(data)} references.")
 
-            # Sample both fraud and legit to maintain balance
-            if random.random() > SAMPLE_RATE:
-                continue
+    fraud = [obj["vector"] for obj in data if obj["label"] == "fraud"]
+    legit = [obj["vector"] for obj in data if obj["label"] == "legit"]
+    print(f"Fraud: {len(fraud)}, Legit: {len(legit)}")
 
-            for v in vector:
-                s = int(v * SCALE)
-                if s > SCALE: s = SCALE
-                if s < -SCALE: s = -SCALE
-                vectors.append(s)
+    rng = random.Random(42)
 
-            # pad to 16 dimensions for SIMD alignment
-            for _ in range(len(vector), DIM):
-                vectors.append(0)
+    if k > 0:
+        fraud_ratio = len(fraud) / len(data)
+        fraud_k = max(1, round(k * fraud_ratio))
+        legit_k = k - fraud_k
+        print(f"Sampling: {fraud_k} fraud + {legit_k} legit = {k} total")
+        fraud_centroids = stratified_sample(fraud, fraud_k, rng)
+        legit_centroids = stratified_sample(legit, legit_k, rng)
+    else:
+        print("Converting all references to binary.")
+        fraud_centroids = fraud
+        legit_centroids = legit
 
-            labels.append(is_fraud)
-            if is_fraud:
-                fraud_count += 1
-            else:
-                legit_count += 1
+    output_path = SCRIPT_DIR.parent / "src" / "main" / "resources" / "references.bin"
+    total = len(fraud_centroids) + len(legit_centroids)
 
-    count = len(labels)
-    print(f"Loaded {count} records ({fraud_count} fraud, {legit_count} legit)")
+    with open(output_path, "wb") as f:
+        f.write(struct.pack("<i", FILE_SIGNATURE))
+        f.write(struct.pack("<i", VERSION))
+        f.write(struct.pack("<i", DIM))
+        f.write(struct.pack("<i", total))
 
-    with open(SCRIPT_DIR / "../src/main/resources/references.bin", "wb") as f:
-        # HEADER (little-endian)
-        f.write(struct.pack("<I", FILE_SIGNATURE))
-        f.write(struct.pack("<I", VERSION))
-        f.write(struct.pack("<I", DIM))
-        f.write(struct.pack("<I", count))
+        for vec in fraud_centroids + legit_centroids:
+            for i in range(14):
+                f.write(struct.pack("<h", quantize(vec[i])))
+            f.write(struct.pack("<h", 0))
+            f.write(struct.pack("<h", 0))
 
-        # SHORT VECTORS
-        for v in vectors:
-            f.write(struct.pack("<h", v))
+        for _ in fraud_centroids:
+            f.write(struct.pack("B", 1))
+        for _ in legit_centroids:
+            f.write(struct.pack("B", 0))
 
-        # LABELS
-        for label in labels:
-            f.write(struct.pack("?", label))
+    file_size = output_path.stat().st_size
+    print(f"Written {total} references to {output_path} ({file_size} bytes)")
 
-    size = 16 + count * DIM * 2 + count
-    print(f"Written references.bin ({count} records)")
-    print(f"Estimated size: {size} bytes (padded to {DIM} dims)")
 
 if __name__ == "__main__":
     main()
