@@ -17,7 +17,7 @@ public class VPTree {
 
   private final int[] leftChild;
   private final int[] rightChild;
-  private final int[] thresholds;
+  private final long[] thresholds;
   private final int[] vpIdx;
   private final int[] leafStart;
   private final int[] leafEnd;
@@ -26,7 +26,7 @@ public class VPTree {
   private int rootIdx;
   private int nodeCount;
 
-  private static final int LEAF_SIZE = 32;
+  private static final int LEAF_SIZE = 2048;
   private static final Random RANDOM = new Random(42);
 
   public VPTree(short[] vectors, boolean[] labels, int dim) {
@@ -40,7 +40,7 @@ public class VPTree {
     int maxNodes = count > 0 ? 2 * count + 1 : 1;
     leftChild = new int[maxNodes];
     rightChild = new int[maxNodes];
-    thresholds = new int[maxNodes];
+    thresholds = new long[maxNodes];
     vpIdx = new int[maxNodes];
     leafStart = new int[maxNodes];
     leafEnd = new int[maxNodes];
@@ -68,8 +68,8 @@ public class VPTree {
     sortedIndices[vpPos] = sortedIndices[start];
     sortedIndices[start] = vp;
 
-    int sampleSize = Math.min(64, size - 1);
-    int[] distSamples = new int[sampleSize];
+    int sampleSize = Math.min(256, size - 1);
+    long[] distSamples = new long[sampleSize];
     var vpVec = ShortVector.fromArray(SPECIES, vectors, vp * STRIDE);
 
     for (int i = 0; i < sampleSize; i++) {
@@ -78,7 +78,7 @@ public class VPTree {
     }
 
     Arrays.sort(distSamples);
-    int median = distSamples[sampleSize / 2];
+    long median = distSamples[sampleSize / 2];
     thresholds[nodeIdx] = median;
 
     int mid = partition(start + 1, end, vp, median);
@@ -88,7 +88,7 @@ public class VPTree {
     return nodeIdx;
   }
 
-  private int partition(int start, int end, int vp, int median) {
+  private int partition(int start, int end, int vp, long median) {
     int left = start;
     int right = end - 1;
     var vpVec = ShortVector.fromArray(SPECIES, vectors, vp * STRIDE);
@@ -106,17 +106,17 @@ public class VPTree {
     return left;
   }
 
-  private int distance(ShortVector va, int dataIdx) {
+  private long distance(ShortVector va, int dataIdx) {
     var vb = ShortVector.fromArray(SPECIES, vectors, dataIdx * STRIDE);
     var diff = va.sub(vb);
     var lo = (IntVector) diff.convertShape(VectorOperators.S2I, INT_SPECIES, 0);
     var hi = (IntVector) diff.convertShape(VectorOperators.S2I, INT_SPECIES, 1);
-    return lo.mul(lo).reduceLanes(VectorOperators.ADD)
-         + hi.mul(hi).reduceLanes(VectorOperators.ADD);
+    return (long) lo.mul(lo).reduceLanes(VectorOperators.ADD)
+         + (long) hi.mul(hi).reduceLanes(VectorOperators.ADD);
   }
 
   public void search(short[] target, int k, Neighbor[] heap) {
-    for (int i = 0; i < k; i++) heap[i].set(Integer.MAX_VALUE, false);
+    for (int i = 0; i < k; i++) heap[i].set(Long.MAX_VALUE, false);
 
     if (count > 0) {
       var queryVec = ShortVector.fromArray(SPECIES, target, 0);
@@ -130,22 +130,21 @@ public class VPTree {
     if (leftChild[nodeIdx] == -1) {
       for (int i = leafStart[nodeIdx]; i < leafEnd[nodeIdx]; i++) {
         int idx = sortedIndices[i];
-        int dist = distance(queryVec, idx);
-        if (dist < heap[k - 1].distance) {
-          int j = k - 2;
-          while (j >= 0 && heap[j].distance > dist) {
-            heap[j + 1].distance = heap[j].distance;
-            heap[j + 1].label = heap[j].label;
-            j--;
-          }
-          heap[j + 1].set(dist, labels[idx]);
+        long dist = distance(queryVec, idx);
+        if (dist >= heap[k - 1].distance) continue;
+        int j = k - 2;
+        while (j >= 0 && heap[j].distance > dist) {
+          heap[j + 1].distance = heap[j].distance;
+          heap[j + 1].label = heap[j].label;
+          j--;
         }
+        heap[j + 1].set(dist, labels[idx]);
       }
       return;
     }
 
     int vp = vpIdx[nodeIdx];
-    int dist = distance(queryVec, vp);
+    long dist = distance(queryVec, vp);
 
     if (dist < heap[k - 1].distance) {
       int j = k - 2;
@@ -157,7 +156,7 @@ public class VPTree {
       heap[j + 1].set(dist, labels[vp]);
     }
 
-    int threshold = thresholds[nodeIdx];
+    long threshold = thresholds[nodeIdx];
 
     if (dist < threshold) {
       searchNode(leftChild[nodeIdx], queryVec, heap);
@@ -173,17 +172,17 @@ public class VPTree {
   }
 
   public static class Neighbor {
-    public int distance;
+    public long distance;
     public boolean label;
 
     public Neighbor() {}
 
-    public void set(int distance, boolean label) {
+    public void set(long distance, boolean label) {
       this.distance = distance;
       this.label = label;
     }
 
-    public int distance() { return distance; }
+    public long distance() { return distance; }
     public boolean label() { return label; }
   }
 }

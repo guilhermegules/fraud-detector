@@ -20,7 +20,7 @@ class VPTreeTest {
     VPTree tree = new VPTree(new short[0], new boolean[0], 16);
     VPTree.Neighbor[] h = heap(1);
     tree.search(new short[16], 1, h);
-    assertEquals(Integer.MAX_VALUE, h[0].distance());
+    assertEquals(Long.MAX_VALUE, h[0].distance());
   }
 
   @Test

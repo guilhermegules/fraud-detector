@@ -51,7 +51,7 @@ public class KnnFraudDetectionService implements FraudDetectionService {
     tree.search(vector, FraudScore.K, heap);
     int fraudNeighbors = 0;
     for (int i = 0; i < FraudScore.K; i++) {
-      if (heap[i].distance() == Integer.MAX_VALUE) break;
+      if (heap[i].distance() == Long.MAX_VALUE) break;
       if (heap[i].label()) fraudNeighbors++;
     }
 
@@ -104,7 +104,7 @@ public class KnnFraudDetectionService implements FraudDetectionService {
       warmupPayload(payloads[p % 5], constants, mccRiskMap, vector, heap);
     }
 
-    for (int q = 0; q < 48000; q++) {
+    for (int q = 0; q < 10000; q++) {
       for (int j = 0; j < 16; j++) {
         vector[j] = (short) random.nextInt(10001);
       }
