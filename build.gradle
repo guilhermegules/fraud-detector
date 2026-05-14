@@ -1,7 +1,5 @@
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '4.0.6'
-	id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.rinha'
@@ -18,14 +16,25 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-	implementation 'com.fasterxml.jackson.core:jackson-databind:2.21.2'
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
-	developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
-	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'org.junit.jupiter:junit-jupiter:5.12.2'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+	maxHeapSize = "4g"
+	jvmArgs(
+		'--add-modules', 'jdk.incubator.vector',
+		'-Xss2m'
+	)
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
+}
+
+jar {
+	manifest {
+		attributes 'Main-Class': 'com.rinha.frauddetector.Application'
+	}
 }

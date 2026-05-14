@@ -1,0 +1,20 @@
+services:
+
+  api1:
+    build:
+      context: ..
+      dockerfile: containerization/Dockerfile
+    ports:
+      - "8080:8080"
+    container_name: fraud-detector-1
+    environment:
+      - SERVER_PORT=8080
+    deploy:
+      resources:
+        limits:
+          cpus: "0.45"
+          memory: "160MB"
+
+networks:
+  default:
+    driver: bridge
