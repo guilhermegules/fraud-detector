@@ -9,8 +9,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 
-import static com.rinha.frauddetector.domain.TransactionVector.WEIGHTS;
-
 public class ReferenceLoader {
 
   private static final int DIM = 16;
@@ -45,8 +43,7 @@ public class ReferenceLoader {
       for (int i = 0; i < size; i++) {
         int base = i * DIM;
         for (int j = 0; j < DIM; j++) {
-          short val = Short.reverseBytes(in.readShort());
-          vectors[base + j] = (short) Math.round(val * WEIGHTS[j]);
+          vectors[base + j] = Short.reverseBytes(in.readShort());
         }
       }
 

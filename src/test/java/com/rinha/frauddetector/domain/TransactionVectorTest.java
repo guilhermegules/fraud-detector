@@ -41,7 +41,7 @@ class TransactionVectorTest {
     assertEquals(1365, buf[1], 1);
     assertEquals(410, buf[2], 10);
     assertEquals(6411, buf[3], 1);
-    assertEquals(4096, buf[4], 1);
+    assertEquals(2731, buf[4], 1);
     assertEquals(-8192, buf[5], 1);
     assertEquals(-8192, buf[6], 1);
   }
@@ -74,7 +74,7 @@ class TransactionVectorTest {
         null);
 
     TransactionVector.toArray(request, CONSTANTS, Map.of("5411", 0.15f), buf);
-    assertEquals(11585, buf[11], 1);
+    assertEquals(8192, buf[11], 1);
   }
 
   @Test
@@ -89,7 +89,7 @@ class TransactionVectorTest {
         null);
 
     TransactionVector.toArray(request, CONSTANTS, Map.of("5411", 0.15f), buf);
-    assertEquals(5017, buf[12], 1);
+    assertEquals(4096, buf[12], 1);
   }
 
   @Test

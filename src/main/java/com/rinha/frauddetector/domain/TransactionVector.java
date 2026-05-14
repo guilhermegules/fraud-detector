@@ -6,14 +6,6 @@ import java.util.Map;
 
 public final class TransactionVector {
 
-  public static final float[] WEIGHTS = new float[16];
-  static {
-    for (int i = 0; i < 16; i++) WEIGHTS[i] = 1.0f;
-    WEIGHTS[11] = (float) Math.sqrt(2.0);
-    WEIGHTS[12] = (float) Math.sqrt(1.5);
-  }
-
-  private static final int VECTOR_SIZE = 16;
   static final int SCALE = 8192;
 
   private static final short[] HOURLUT;
@@ -70,9 +62,9 @@ public final class TransactionVector {
 
     v[9] = request.terminal().is_online() ? (short) SCALE : (short) 0;
     v[10] = request.terminal().card_present() ? (short) SCALE : (short) 0;
-    v[11] = request.customer().known_merchants().contains(request.merchant().id()) ? (short) 0 : (short) Math.round(WEIGHTS[11] * SCALE);
+    v[11] = request.customer().known_merchants().contains(request.merchant().id()) ? (short) 0 : (short) SCALE;
 
-    v[12] = q(clamp(mccRiskMap.getOrDefault(request.merchant().mcc(), 0.5f) * WEIGHTS[12]));
+    v[12] = q(clamp(mccRiskMap.getOrDefault(request.merchant().mcc(), 0.5f)));
     v[13] = q(clamp(request.merchant().avg_amount() / constants.max_merchant_avg_amount()));
 
     v[14] = 0;
@@ -106,7 +98,7 @@ public final class TransactionVector {
     int j = year / 100;
 
     int h = (day + (13 * (m + 1)) / 5 + k + k / 4 + j / 4 + 5 * j) % 7;
-    return (h + 6) % 7;
+    return (h + 5) % 7;
   }
 
   private static boolean isLeapYear(int year) {
