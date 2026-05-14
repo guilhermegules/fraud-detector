@@ -1,6 +1,5 @@
-package com.rinha.frauddetector.engine;
+package com.rinha.frauddetector.adapter.engine;
 
-import com.rinha.frauddetector.adapter.engine.VPTree;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;

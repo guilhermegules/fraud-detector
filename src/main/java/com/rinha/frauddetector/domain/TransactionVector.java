@@ -2,16 +2,19 @@ package com.rinha.frauddetector.domain;
 
 import com.rinha.frauddetector.dto.FraudRequest;
 
-import java.util.Arrays;
 import java.util.Map;
 
-import static com.rinha.frauddetector.config.Constants.WEIGHTS;
+public final class TransactionVector {
 
-public record TransactionVector(short[] features) {
+  public static final float[] WEIGHTS = new float[16];
+  static {
+    for (int i = 0; i < 16; i++) WEIGHTS[i] = 1.0f;
+    WEIGHTS[11] = (float) Math.sqrt(2.0);
+    WEIGHTS[12] = (float) Math.sqrt(1.5);
+  }
 
   private static final int VECTOR_SIZE = 16;
-  private static final int RAW_SIZE = 14;
-  private static final int SCALE = 8192;
+  static final int SCALE = 8192;
 
   private static final short[] HOURLUT;
   private static final short[] DOWLUT;
@@ -29,39 +32,7 @@ public record TransactionVector(short[] features) {
 
   private static final int[] DAYS_IN_MONTH = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-  public TransactionVector {
-    if (features == null || features.length != VECTOR_SIZE) {
-      throw new IllegalArgumentException("Vector must have exactly " + VECTOR_SIZE + " features");
-    }
-  }
-
-  public int distanceTo(TransactionVector other) {
-    int sum = 0;
-
-    for (int i = 0; i < RAW_SIZE; i++) {
-      int diff = this.features[i] - other.features[i];
-      sum += diff * diff;
-    }
-
-    return sum;
-  }
-
-  public static TransactionVector fromRequest(
-          FraudRequest request,
-          NormalizationConstants constants,
-          Map<String, Float> mccRiskMap) {
-
-    return new TransactionVector(toArray(request, constants, mccRiskMap));
-  }
-
-  public static short[] toArray(
-          FraudRequest request,
-          NormalizationConstants constants,
-          Map<String, Float> mccRiskMap) {
-    short[] v = new short[VECTOR_SIZE];
-    toArray(request, constants, mccRiskMap, v);
-    return v;
-  }
+  private TransactionVector() {}
 
   public static void toArray(
           FraudRequest request,
@@ -83,7 +54,7 @@ public record TransactionVector(short[] features) {
     v[4] = DOWLUT[dow];
 
     final var lastTx = request.last_transaction();
-    if (lastTx != null) {
+    if (lastTx != null && lastTx.timestamp() != null) {
       long currEpoch = parseEpochSecond(ts);
       long lastEpoch = parseEpochSecond(lastTx.timestamp());
       float minutes = (currEpoch - lastEpoch) / 60f;
@@ -177,20 +148,4 @@ public record TransactionVector(short[] features) {
     return days;
   }
 
-  private static float norm(float value) {
-    if (value < 0f) return 0f;
-    return Math.min(value, 1f);
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof TransactionVector(short[] features1))) return false;
-    return Arrays.equals(features, features1);
-  }
-
-  @Override
-  public int hashCode() {
-    return Arrays.hashCode(features);
-  }
 }

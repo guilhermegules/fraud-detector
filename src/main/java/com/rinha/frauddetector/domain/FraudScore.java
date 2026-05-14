@@ -40,24 +40,4 @@ public record FraudScore(boolean approved, float score) {
     return PRECOMPUTED_RESPONSES[n];
   }
 
-  public static FraudScore fromScore(float score) {
-    score = Math.clamp(score, 0.0f, 1.0f);
-    return new FraudScore(score < THRESHOLD, score);
-  }
-
-  public boolean isFraudulent() {
-    return !approved;
-  }
-
-  public boolean isLowRisk() {
-    return score < 0.4f;
-  }
-
-  public boolean isMediumRisk() {
-    return score >= 0.4f && score <= 0.7f;
-  }
-
-  public boolean isHighRisk() {
-    return score > 0.7f;
-  }
 }

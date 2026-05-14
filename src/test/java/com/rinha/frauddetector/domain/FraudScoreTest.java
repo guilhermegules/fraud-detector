@@ -1,6 +1,8 @@
 package com.rinha.frauddetector.domain;
 
 import org.junit.jupiter.api.Test;
+import java.nio.charset.StandardCharsets;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class FraudScoreTest {
@@ -13,50 +15,46 @@ class FraudScoreTest {
   }
 
   @Test
-  void shouldCreateFromScoreLowRisk() {
-    FraudScore score = FraudScore.fromScore(0.2f);
+  void shouldCreateFromFraudCount() {
+    FraudScore score = FraudScore.fromFraudCount(0);
     assertTrue(score.approved());
-    assertEquals(0.2f, score.score(), 0.001f);
-  }
-
-  @Test
-  void shouldCreateFromScoreHighRisk() {
-    FraudScore score = FraudScore.fromScore(0.7f);
-    assertFalse(score.approved());
-    assertEquals(0.7f, score.score(), 0.001f);
-  }
-
-  @Test
-  void shouldClampScoreAboveOne() {
-    FraudScore score = FraudScore.fromScore(1.5f);
-    assertEquals(1.0f, score.score(), 0.001f);
-  }
-
-  @Test
-  void shouldClampScoreBelowZero() {
-    FraudScore score = FraudScore.fromScore(-0.5f);
     assertEquals(0.0f, score.score(), 0.001f);
   }
 
   @Test
-  void shouldIdentifyFraudulent() {
-    FraudScore fraudulent = FraudScore.fromScore(0.9f);
-    assertTrue(fraudulent.isFraudulent());
-    assertTrue(fraudulent.isHighRisk());
+  void shouldRejectAtThreshold() {
+    FraudScore score = FraudScore.fromFraudCount(3);
+    assertFalse(score.approved());
+    assertEquals(0.6f, score.score(), 0.001f);
   }
 
   @Test
-  void shouldIdentifySafe() {
-    FraudScore safe = FraudScore.fromScore(0.2f);
-    assertFalse(safe.isFraudulent());
-    assertTrue(safe.isLowRisk());
+  void shouldRejectAboveThreshold() {
+    FraudScore score = FraudScore.fromFraudCount(4);
+    assertFalse(score.approved());
+    assertEquals(0.8f, score.score(), 0.001f);
   }
 
   @Test
-  void shouldIdentifyMediumRisk() {
-    FraudScore medium = FraudScore.fromScore(0.6f);
-    assertTrue(medium.isMediumRisk());
-    assertFalse(medium.isLowRisk());
-    assertFalse(medium.isHighRisk());
+  void shouldClampFraudCount() {
+    FraudScore score = FraudScore.fromFraudCount(10);
+    assertFalse(score.approved());
+    assertEquals(1.0f, score.score(), 0.001f);
+  }
+
+  @Test
+  void shouldReturnPrecomputedResponse() {
+    byte[] response = FraudScore.fromFraudCount(0).responseBytes();
+    String body = new String(response, StandardCharsets.UTF_8);
+    assertTrue(body.contains("\"approved\":true"));
+    assertTrue(body.contains("\"fraud_score\":0.0"));
+  }
+
+  @Test
+  void shouldReturnPrecomputedRejectResponse() {
+    byte[] response = FraudScore.fromFraudCount(5).responseBytes();
+    String body = new String(response, StandardCharsets.UTF_8);
+    assertTrue(body.contains("\"approved\":false"));
+    assertTrue(body.contains("\"fraud_score\":1.0"));
   }
 }

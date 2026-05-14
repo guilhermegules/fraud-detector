@@ -2,20 +2,17 @@ package com.rinha.frauddetector.application;
 
 import com.rinha.frauddetector.adapter.engine.VPTree;
 import com.rinha.frauddetector.adapter.loader.ReferenceLoader;
-import com.rinha.frauddetector.domain.FraudDetectionService;
 import com.rinha.frauddetector.domain.FraudScore;
 import com.rinha.frauddetector.domain.NormalizationConstants;
 import com.rinha.frauddetector.domain.TransactionVector;
 import com.rinha.frauddetector.dto.*;
-
-import jakarta.annotation.PostConstruct;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-public class KnnFraudDetectionService implements FraudDetectionService {
+public final class KnnFraudDetectionService {
 
   private VPTree tree;
   private final ReferenceLoader referenceLoader;
@@ -32,14 +29,12 @@ public class KnnFraudDetectionService implements FraudDetectionService {
     this.referenceLoader = referenceLoader;
   }
 
-  @PostConstruct
   public void initialize() throws IOException {
     var ref = referenceLoader.loadFraudReference();
     tree = new VPTree(ref.vectors(), ref.labels(), 16);
     warmup();
   }
 
-  @Override
   public FraudScore evaluate(FraudRequest request) {
     short[] vector = VECTOR_BUFFER.get();
     TransactionVector.toArray(request,

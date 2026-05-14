@@ -3,7 +3,6 @@ package com.rinha.frauddetector.adapter.engine;
 import jdk.incubator.vector.*;
 
 import java.util.Arrays;
-import java.util.Random;
 
 public class VPTree {
 
@@ -27,7 +26,6 @@ public class VPTree {
   private int nodeCount;
 
   private static final int LEAF_SIZE = 2048;
-  private static final Random RANDOM = new Random(42);
 
   public VPTree(short[] vectors, boolean[] labels, int dim) {
     this.vectors = vectors;
@@ -46,10 +44,10 @@ public class VPTree {
     leafEnd = new int[maxNodes];
 
     nodeCount = 0;
-    if (count > 0) rootIdx = build(0, count);
+    if (count > 0) rootIdx = build(0, count, new java.util.Random(42));
   }
 
-  private int build(int start, int end) {
+  private int build(int start, int end, java.util.Random rng) {
     int nodeIdx = nodeCount++;
     int size = end - start;
 
@@ -61,7 +59,7 @@ public class VPTree {
       return nodeIdx;
     }
 
-    int vpPos = start + RANDOM.nextInt(size);
+    int vpPos = start + rng.nextInt(size);
     int vp = sortedIndices[vpPos];
     vpIdx[nodeIdx] = vp;
 
@@ -73,7 +71,7 @@ public class VPTree {
     var vpVec = ShortVector.fromArray(SPECIES, vectors, vp * STRIDE);
 
     for (int i = 0; i < sampleSize; i++) {
-      int idx = start + 1 + RANDOM.nextInt(size - 1);
+      int idx = start + 1 + rng.nextInt(size - 1);
       distSamples[i] = distance(vpVec, sortedIndices[idx]);
     }
 
@@ -83,8 +81,8 @@ public class VPTree {
 
     int mid = partition(start + 1, end, vp, median);
 
-    leftChild[nodeIdx] = build(start + 1, mid);
-    rightChild[nodeIdx] = build(mid, end);
+    leftChild[nodeIdx] = build(start + 1, mid, rng);
+    rightChild[nodeIdx] = build(mid, end, rng);
     return nodeIdx;
   }
 

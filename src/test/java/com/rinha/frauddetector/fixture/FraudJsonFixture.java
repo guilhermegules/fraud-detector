@@ -80,7 +80,7 @@ public class FraudJsonFixture {
                 "km_from_home": 15.5
               },
               "last_transaction": {
-                "timestamp": "2026-03-11T18:45:53Z",
+                "requested_at": "2026-03-11T18:45:53Z",
                 "km_from_current": 8.2
               }
             }

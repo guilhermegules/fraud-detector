@@ -9,7 +9,7 @@ COPY build.gradle settings.gradle ./
 RUN ./gradlew dependencies --no-daemon
 
 COPY src src
-RUN ./gradlew bootJar --no-daemon -x test
+RUN ./gradlew jar --no-daemon -x test
 
 # ---- Runtime stage ----
 FROM eclipse-temurin:25-jre
