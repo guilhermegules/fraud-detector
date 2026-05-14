@@ -6,7 +6,7 @@ import java.util.Map;
 
 public final class TransactionVector {
 
-  static final int SCALE = 8192;
+  static final int SCALE = 10000;
 
   private static final short[] HOURLUT;
   private static final short[] DOWLUT;

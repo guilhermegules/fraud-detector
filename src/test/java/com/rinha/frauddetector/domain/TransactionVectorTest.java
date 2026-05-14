@@ -37,13 +37,13 @@ class TransactionVectorTest {
         null);
 
     TransactionVector.toArray(request, CONSTANTS, Map.of("5411", 0.15F), buf);
-    assertEquals(34, buf[0], 1);
-    assertEquals(1365, buf[1], 1);
-    assertEquals(410, buf[2], 10);
-    assertEquals(6411, buf[3], 1);
-    assertEquals(2731, buf[4], 1);
-    assertEquals(-8192, buf[5], 1);
-    assertEquals(-8192, buf[6], 1);
+    assertEquals(41, buf[0], 1);
+    assertEquals(1667, buf[1], 1);
+    assertEquals(500, buf[2], 10);
+    assertEquals(7826, buf[3], 1);
+    assertEquals(3333, buf[4], 1);
+    assertEquals(-10000, buf[5], 1);
+    assertEquals(-10000, buf[6], 1);
   }
 
   @Test
@@ -58,8 +58,8 @@ class TransactionVectorTest {
         null);
 
     TransactionVector.toArray(request, CONSTANTS, Map.of("5411", 0.15f), buf);
-    assertEquals(-8192, buf[5], 1);
-    assertEquals(-8192, buf[6], 1);
+    assertEquals(-10000, buf[5], 1);
+    assertEquals(-10000, buf[6], 1);
   }
 
   @Test
@@ -74,7 +74,7 @@ class TransactionVectorTest {
         null);
 
     TransactionVector.toArray(request, CONSTANTS, Map.of("5411", 0.15f), buf);
-    assertEquals(8192, buf[11], 1);
+    assertEquals(10000, buf[11], 1);
   }
 
   @Test
@@ -89,7 +89,7 @@ class TransactionVectorTest {
         null);
 
     TransactionVector.toArray(request, CONSTANTS, Map.of("5411", 0.15f), buf);
-    assertEquals(4096, buf[12], 1);
+    assertEquals(5000, buf[12], 1);
   }
 
   @Test
@@ -104,7 +104,7 @@ class TransactionVectorTest {
         null);
 
     TransactionVector.toArray(request, CONSTANTS, Map.of("5411", 0.15f), buf);
-    assertEquals(8192, buf[0], 1);
+    assertEquals(10000, buf[0], 1);
   }
 
   @Test
@@ -119,7 +119,7 @@ class TransactionVectorTest {
         null);
 
     TransactionVector.toArray(request, CONSTANTS, Map.of("5411", 0.15f), buf);
-    assertEquals(8192, buf[1], 1);
+    assertEquals(10000, buf[1], 1);
   }
 
   private static FraudRequest createSampleRequest(

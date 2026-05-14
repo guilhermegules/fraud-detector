@@ -27,7 +27,7 @@ from pathlib import Path
 FILE_SIGNATURE = 0x52524546  # "RREF"
 VERSION = 2
 DIM = 16
-SCALE = 8192
+SCALE = 10000
 
 
 def quantize(v: float) -> int:
