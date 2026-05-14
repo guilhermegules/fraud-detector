@@ -1,15 +1,28 @@
 #!/usr/bin/env python3
-import json
+"""
+Convert fraud reference dataset from JSON to binary format.
+
+The binary format is loaded directly by ReferenceLoader.java at startup,
+eliminating JSON parsing overhead. The format is:
+
+  [int] signature  (0x52524546 = "RREF")
+  [int] version    (2)
+  [int] dim        (16)
+  [int] count      (number of vectors)
+  [short] vectors  (count * 16 little-endian shorts, zero-padded to 16 dims)
+  [byte] labels    (count bytes: 1 = fraud, 0 = legit)
+
+Usage:
+  python3 precompute.py                              # uses all data
+  python3 precompute.py --samples 50000               # stratified 50k samples
+  python3 precompute.py --data-dir ../external-data   # custom data path
+"""
+import argparse
 import gzip
-import struct
+import json
 import random
-import sys
+import struct
 from pathlib import Path
-
-SCRIPT_DIR = Path(__file__).resolve().parent
-
-resources_path = Path(sys.argv[1]) if len(sys.argv) > 1 else SCRIPT_DIR.parent / "external-data"
-k = int(sys.argv[2]) if len(sys.argv) > 2 else 0
 
 FILE_SIGNATURE = 0x52524546  # "RREF"
 VERSION = 2
@@ -19,11 +32,7 @@ SCALE = 8192
 
 def quantize(v: float) -> int:
     q = round(v * SCALE)
-    if q > 32767:
-        q = 32767
-    elif q < -32768:
-        q = -32768
-    return q
+    return max(-32768, min(32767, q))
 
 
 def stratified_sample(vectors, n, rng):
@@ -34,17 +43,61 @@ def stratified_sample(vectors, n, rng):
     return [vectors[i] for i in indices[:n]]
 
 
-def main():
-    print(f"Loading references from {resources_path}...")
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Convert fraud reference dataset to binary format for the Java fraud detector.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  python3 precompute.py\n"
+            "  python3 precompute.py --samples 50000\n"
+            "  python3 precompute.py --samples 100000 --data-dir ../external-data\n"
+        ),
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        default=None,
+        help="Path to directory containing references.json.gz (default: ../external-data relative to script)",
+    )
+    parser.add_argument(
+        "--samples", "-k",
+        type=int,
+        default=0,
+        help="Number of stratified samples (0 = use all data)",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output path for references.bin (default: ../src/main/resources/references.bin)",
+    )
+    return parser.parse_args()
 
-    with gzip.open(resources_path / "references.json.gz", "rt") as f:
+
+def main():
+    args = parse_args()
+    script_dir = Path(__file__).resolve().parent
+    data_dir = Path(args.data_dir) if args.data_dir else script_dir.parent / "external-data"
+    output_path = Path(args.output) if args.output else script_dir.parent / "src" / "main" / "resources" / "references.bin"
+    k = args.samples
+
+    data_file = data_dir / "references.json.gz"
+    print(f"[precompute] Loading references from {data_file}")
+
+    if not data_file.exists():
+        print(f"[precompute] ERROR: {data_file} not found.", file=sys.stderr)
+        print(f"[precompute] Expected at '{data_file}'. Generate or download the dataset first.", file=sys.stderr)
+        sys.exit(1)
+
+    with gzip.open(data_file, "rt") as f:
         data = json.load(f)
 
-    print(f"Loaded {len(data)} references.")
+    print(f"[precompute] Loaded {len(data)} references")
 
     fraud = [obj["vector"] for obj in data if obj["label"] == "fraud"]
     legit = [obj["vector"] for obj in data if obj["label"] == "legit"]
-    print(f"Fraud: {len(fraud)}, Legit: {len(legit)}")
+    print(f"[precompute] Fraud: {len(fraud)}, Legit: {len(legit)}")
 
     rng = random.Random(42)
 
@@ -52,17 +105,17 @@ def main():
         fraud_ratio = len(fraud) / len(data)
         fraud_k = max(1, round(k * fraud_ratio))
         legit_k = k - fraud_k
-        print(f"Sampling: {fraud_k} fraud + {legit_k} legit = {k} total")
+        print(f"[precompute] Sampling: {fraud_k} fraud + {legit_k} legit = {k} total")
         fraud_centroids = stratified_sample(fraud, fraud_k, rng)
         legit_centroids = stratified_sample(legit, legit_k, rng)
     else:
-        print("Converting all references to binary.")
+        print("[precompute] Using all references")
         fraud_centroids = fraud
         legit_centroids = legit
 
-    output_path = SCRIPT_DIR.parent / "src" / "main" / "resources" / "references.bin"
     total = len(fraud_centroids) + len(legit_centroids)
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "wb") as f:
         f.write(struct.pack("<i", FILE_SIGNATURE))
         f.write(struct.pack("<i", VERSION))
@@ -81,8 +134,9 @@ def main():
             f.write(struct.pack("B", 0))
 
     file_size = output_path.stat().st_size
-    print(f"Written {total} references to {output_path} ({file_size} bytes)")
+    print(f"[precompute] Written {total} references to {output_path} ({file_size} bytes)")
 
 
 if __name__ == "__main__":
+    import sys
     main()

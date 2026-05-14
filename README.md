@@ -1,93 +1,131 @@
 # Fraud Detector
 
-A Spring Boot application for fraud detection with load balancing using HAProxy.
+High-performance fraud detection service using k-NN with VP-Tree search and SIMD vectorization. Built for the Rinha de Backend competition — zero Spring, zero frameworks, pure Java 25.
 
 ## Prerequisites
 
 - Java 25 or higher
-- Docker
-- Docker Compose
+- Docker & Docker Compose (for containerized deployment)
 
-## Platform Compatibility
-
-Images are built for `linux/amd64` architecture. If you're using a Mac with ARM64 processor (Apple Silicon), Docker will emulate the build. The Dockerfile and docker-compose files are already configured with `--platform=linux/amd64` to ensure compatibility.
-
-## Building the Project
-
-### Precompute Dataset (Required before build)
-
-Convert the JSON reference dataset to binary format for faster loading:
+## Quick Start
 
 ```bash
-python3 precompute.py [SAMPLE_RATE]
-# Example: python3 precompute.py 0.005  # 100% sample rate (default)
+# 1. Precompute binary reference data (required once)
+python3 scripts/precompute.py
+
+# 2. Build the JAR
+./gradlew jar
+
+# 3. Run
+java --add-modules=jdk.incubator.vector -jar build/libs/frauddetector-0.0.1.jar
 ```
 
-This generates `src/main/resources/references.bin` which loads directly into memory at startup.
+## Precomputing the Dataset
 
-**Why needed:** The binary format eliminates JSON parsing overhead, reducing startup time and memory usage. The original `references.json.gz` (48MB compressed) is converted to a compact binary format that maps directly to Java's `float[]` and `byte[]` arrays.
-
-### Using Gradle
+The fraud detector loads reference vectors from a binary file at startup. Convert the raw JSON dataset:
 
 ```bash
-./gradlew bootJar
+# Use all ~3M reference vectors
+python3 scripts/precompute.py
+
+# Stratified sample for faster evaluation (e.g. 100k samples)
+python3 scripts/precompute.py --samples 100000
+
+# Custom paths
+python3 scripts/precompute.py --data-dir ./external-data --output ./src/main/resources/references.bin
 ```
 
-The built JAR will be available in `build/libs/`.
+The binary format maps directly to Java `short[]` and `byte[]` arrays, eliminating JSON parsing overhead at startup. Output goes to `src/main/resources/references.bin` by default.
 
-### Using Docker
+### Dataset Generation
+
+The full dataset is not included in this repository. Generate it using the tools in `reference/tools/Preprocessor/` (C# K-means clustering).
+
+## Building
+
+### Standalone JAR
 
 ```bash
-docker build --platform linux/amd64 -t fraud-detector-rinha .
+./gradlew jar
 ```
 
-## Docker Hub
+Output: `build/libs/frauddetector-0.0.1.jar`
 
-### Login to Docker Hub
-
-```bash
-docker login
-```
-
-### Tag the image
+### Docker
 
 ```bash
-docker tag fraud-detector your-dockerhub-username/fraud-detector-rinha:latest
-```
+# Build image
+docker build --platform linux/amd64 -t fraud-detector-rinha containerization/
 
-### Push to Docker Hub
-
-```bash
-docker push your-dockerhub-username/fraud-detector-rinha:latest
-```
-
-Replace `your-dockerhub-username` with your actual Docker Hub username.
-
-## Running the Application
-
-### Using Gradle
-
-```bash
-./gradlew bootRun
-```
-
-The application will start on port 8080 by default.
-
-### Using Docker Compose (Production)
-
-```bash
+# Or use Docker Compose
 docker compose up --build
 ```
 
-This will start:
-- 2 instances of the fraud detector API (api-1, api-2)
-- HAProxy load balancer on port 9999
+## Running
 
-### Using Docker Compose (Development)
+### Direct (no container)
 
 ```bash
-docker compose -f docker-compose.dev.yml up --build
+java \
+  --add-modules=jdk.incubator.vector \
+  -Xms90m -Xmx120m \
+  -XX:+UseG1GC -XX:MaxGCPauseMillis=1 \
+  -XX:+AlwaysPreTouch -XX:CompileThreshold=1000 \
+  -XX:MaxRAM=160m -XX:ReservedCodeCacheSize=64m \
+  -jar build/libs/frauddetector-0.0.1.jar
 ```
+
+The server listens on port 8080 (configurable via `SERVER_PORT` env var).
+
+### Docker Compose (Production)
+
+```bash
+cd containerization && docker compose up --build
+```
+
+Starts:
+- 2 API instances (api1, api2), 160MB RAM each, 0.45 CPU
+- HAProxy load balancer on port 9999
+
+### Docker Compose (Development)
+
+```bash
+docker compose -f containerization/docker-compose.dev.yml up --build
+```
+
+Single API instance on port 8080.
+
+### Build & Publish
+
+```bash
+./containerization/build-publish.sh
+```
+
+Builds the Docker image and pushes to Docker Hub with a timestamp tag and `latest` tag. Edit the script to set your own image name.
+
+## API
+
+### `GET /ready`
+
+Health check. Returns `{"status":"Ready"}` when the service is initialized.
+
+### `POST /fraud-score`
+
+Evaluates a transaction for fraud risk.
+
+**Request body:**
+```json
+{
+  "id": "tx-1329056812",
+  "transaction": { "amount": 384.88, "installments": 3, "requested_at": "2026-03-11T20:23:35Z" },
+  "customer": { "avg_amount": 769.76, "tx_count_24h": 3, "known_merchants": ["MERC-009"] },
+  "merchant": { "id": "MERC-001", "mcc": "5912", "avg_amount": 298.95 },
+  "terminal": { "is_online": false, "card_present": true, "km_from_home": 13.7 },
+  "last_transaction": { "requested_at": "2026-03-11T14:58:35Z", "km_from_current": 18.9 }
+}
+```
+
+**Response:** `{"approved": true, "fraud_score": 0.0}`
 
 ## Testing
 
@@ -95,14 +133,10 @@ docker compose -f docker-compose.dev.yml up --build
 ./gradlew test
 ```
 
-## Configuration
-
-The application runs on port 8080 by default. The load balancer (HAProxy) exposes port 9999.
-
-## Technologies
-
-- Java 25 (Eclipse Temurin)
-- Spring Boot 4.0.6
-- Gradle
-- HAProxy 3.0
-- Docker & Docker Compose
+Key characteristics:
+- **No Spring, no frameworks** — pure JDK 25
+- **Zero-dependency JSON** — hand-written streaming parser
+- **SIMD k-NN search** — Java Vector API (`ShortVector.SPECIES_256`)
+- **VP-Tree** — exact nearest neighbor search with median partitioning
+- **Virtual threads** — JDK HttpServer with `newVirtualThreadPerTaskExecutor()`
+- **Zero-allocation hot path** — `ThreadLocal` buffer pools for vectors and neighbor heaps

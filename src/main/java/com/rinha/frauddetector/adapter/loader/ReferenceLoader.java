@@ -3,10 +3,10 @@ package com.rinha.frauddetector.adapter.loader;
 import com.rinha.frauddetector.domain.FraudReference;
 import com.rinha.frauddetector.domain.NormalizationConstants;
 
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Map;
 
 import static com.rinha.frauddetector.domain.TransactionVector.WEIGHTS;
@@ -30,38 +30,33 @@ public class ReferenceLoader {
   }
 
   public FraudReference loadFraudReference() throws IOException {
-    byte[] fileBytes;
-    try (InputStream is = open()) {
-      fileBytes = is.readAllBytes();
-    }
+    try (var in = new DataInputStream(new BufferedInputStream(open()))) {
+      int signature = Integer.reverseBytes(in.readInt());
+      if (signature != FILE_SIGNATURE) throw new IOException("Invalid signature: " + signature);
+      int version = Integer.reverseBytes(in.readInt());
+      if (version != VERSION) throw new IOException("Invalid version: " + version);
+      int dim = Integer.reverseBytes(in.readInt());
+      if (dim != DIM) throw new IOException("Invalid dimension: " + dim);
+      int size = Integer.reverseBytes(in.readInt());
 
-    ByteBuffer buf = ByteBuffer.wrap(fileBytes).order(ByteOrder.LITTLE_ENDIAN);
+      short[] vectors = new short[size * DIM];
+      boolean[] labels = new boolean[size];
 
-    int signature = buf.getInt();
-    if (signature != FILE_SIGNATURE) throw new IOException("Invalid signature: " + signature);
-    int version = buf.getInt();
-    if (version != VERSION) throw new IOException("Invalid version: " + version);
-    int dim = buf.getInt();
-    if (dim != DIM) throw new IOException("Invalid dimension: " + dim);
-    int size = buf.getInt();
-
-    short[] vectors = new short[size * DIM];
-    boolean[] labels = new boolean[size];
-
-    for (int i = 0; i < size; i++) {
-      int base = i * DIM;
-      for (int j = 0; j < DIM; j++) {
-        short val = buf.getShort();
-        vectors[base + j] = (short) Math.round(val * WEIGHTS[j]);
+      for (int i = 0; i < size; i++) {
+        int base = i * DIM;
+        for (int j = 0; j < DIM; j++) {
+          short val = Short.reverseBytes(in.readShort());
+          vectors[base + j] = (short) Math.round(val * WEIGHTS[j]);
+        }
       }
-    }
 
-    for (int i = 0; i < size; i++) {
-      labels[i] = buf.get() != 0;
-    }
+      for (int i = 0; i < size; i++) {
+        labels[i] = in.readByte() != 0;
+      }
 
-    fraudReference = new FraudReference(vectors, labels);
-    return fraudReference;
+      fraudReference = new FraudReference(vectors, labels);
+      return fraudReference;
+    }
   }
 
   private InputStream open() throws IOException {

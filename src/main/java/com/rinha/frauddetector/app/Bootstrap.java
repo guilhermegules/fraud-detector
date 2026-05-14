@@ -16,8 +16,6 @@ public final class Bootstrap {
         var loader = new ReferenceLoader();
         loader.loadNormalization(JsonCodec.parseNormalization(readResource("normalization.json")));
         loader.loadMccRisk(JsonCodec.parseMccRisk(readResource("mcc_risk.json")));
-        loader.loadFraudReference();
-
         var service = new KnnFraudDetectionService(loader);
         service.initialize();
         this.fraudDetectionService = service;

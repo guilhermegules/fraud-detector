@@ -44,6 +44,7 @@ public final class KnnFraudDetectionService {
 
     var heap = HEAP_BUFFER.get();
     tree.search(vector, FraudScore.K, heap);
+
     int fraudNeighbors = 0;
     for (int i = 0; i < FraudScore.K; i++) {
       if (heap[i].distance() == Long.MAX_VALUE) break;
@@ -96,7 +97,10 @@ public final class KnnFraudDetectionService {
     };
 
     for (int p = 0; p < 2000; p++) {
-      warmupPayload(payloads[p % 5], constants, mccRiskMap, vector, heap);
+      var req = payloads[p % 5];
+      TransactionVector.toArray(req, constants, mccRiskMap, vector);
+      tree.search(vector, FraudScore.K, heap);
+      countFraud(heap);
     }
 
     for (int q = 0; q < 10000; q++) {
@@ -104,15 +108,16 @@ public final class KnnFraudDetectionService {
         vector[j] = (short) random.nextInt(10001);
       }
       tree.search(vector, FraudScore.K, heap);
+      countFraud(heap);
     }
   }
 
-  private void warmupPayload(FraudRequest req,
-      NormalizationConstants constants,
-      Map<String, Float> mccRiskMap,
-      short[] vector,
-      VPTree.Neighbor[] heap) {
-    TransactionVector.toArray(req, constants, mccRiskMap, vector);
-    tree.search(vector, FraudScore.K, heap);
+  private static int countFraud(VPTree.Neighbor[] heap) {
+    int n = 0;
+    for (int i = 0; i < FraudScore.K; i++) {
+      if (heap[i].distance() == Long.MAX_VALUE) break;
+      if (heap[i].label()) n++;
+    }
+    return n;
   }
 }
