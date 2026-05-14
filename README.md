@@ -37,10 +37,6 @@ python3 scripts/precompute.py --data-dir ./external-data --output ./src/main/res
 
 The binary format maps directly to Java `short[]` and `byte[]` arrays, eliminating JSON parsing overhead at startup. Output goes to `src/main/resources/references.bin` by default.
 
-### Dataset Generation
-
-The full dataset is not included in this repository. Generate it using the tools in `reference/tools/Preprocessor/` (C# K-means clustering).
-
 ## Building
 
 ### Standalone JAR
@@ -134,9 +130,9 @@ Evaluates a transaction for fraud risk.
 ```
 
 Key characteristics:
-- **No Spring, no frameworks** — pure JDK 25
-- **Zero-dependency JSON** — hand-written streaming parser
-- **SIMD k-NN search** — Java Vector API (`ShortVector.SPECIES_256`)
-- **VP-Tree** — exact nearest neighbor search with median partitioning
-- **Virtual threads** — JDK HttpServer with `newVirtualThreadPerTaskExecutor()`
-- **Zero-allocation hot path** — `ThreadLocal` buffer pools for vectors and neighbor heaps
+- **No Spring, no frameworks** pure JDK 25
+- **Zero-dependency JSON** hand-written streaming parser
+- **SIMD k-NN search** Java Vector API (`ShortVector.SPECIES_256`)
+- **VP-Tree** exact nearest neighbor search with median partitioning
+- **Virtual threads** JDK HttpServer with `newVirtualThreadPerTaskExecutor()`
+- **Zero-allocation hot path** `ThreadLocal` buffer pools for vectors and neighbor heaps
