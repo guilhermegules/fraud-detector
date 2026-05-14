@@ -27,10 +27,10 @@ public final class TransactionVector {
   private TransactionVector() {}
 
   public static void toArray(
-          FraudRequest request,
-          NormalizationConstants constants,
-          Map<String, Float> mccRiskMap,
-          short[] v) {
+      FraudRequest request,
+      NormalizationConstants constants,
+      Map<String, Float> mccRiskMap,
+      short[] v) {
 
     final String ts = request.transaction().requested_at();
     final int hour = (ts.charAt(11) - '0') * 10 + (ts.charAt(12) - '0');
@@ -40,17 +40,20 @@ public final class TransactionVector {
     v[1] = q(clamp(request.transaction().installments() / constants.max_installments()));
 
     float avgAmt = request.customer().avg_amount();
-    v[2] = q(avgAmt > 0f ? clamp((request.transaction().amount() / avgAmt) / constants.amount_vs_avg_ratio()) : 1f);
+    v[2] =
+        q(
+            avgAmt > 0f
+                ? clamp((request.transaction().amount() / avgAmt) / constants.amount_vs_avg_ratio())
+                : 1f);
 
     v[3] = HOURLUT[hour];
     v[4] = DOWLUT[dow];
 
     final var lastTx = request.last_transaction();
     if (lastTx != null && lastTx.timestamp() != null) {
-      long currEpoch = parseEpochSecond(ts);
-      long lastEpoch = parseEpochSecond(lastTx.timestamp());
-      float minutes = (currEpoch - lastEpoch) / 60f;
-      v[5] = q(clamp(minutes / constants.max_minutes()));
+      long currMin = parseEpochMinute(ts);
+      long lastMin = parseEpochMinute(lastTx.timestamp());
+      v[5] = q(clamp(Math.max(0, currMin - lastMin) / constants.max_minutes()));
       v[6] = q(clamp(lastTx.km_from_current() / constants.max_km()));
     } else {
       v[5] = (short) -SCALE;
@@ -62,7 +65,10 @@ public final class TransactionVector {
 
     v[9] = request.terminal().is_online() ? (short) SCALE : (short) 0;
     v[10] = request.terminal().card_present() ? (short) SCALE : (short) 0;
-    v[11] = request.customer().known_merchants().contains(request.merchant().id()) ? (short) 0 : (short) SCALE;
+    v[11] =
+        request.customer().known_merchants().contains(request.merchant().id())
+            ? (short) 0
+            : (short) SCALE;
 
     v[12] = q(clamp(mccRiskMap.getOrDefault(request.merchant().mcc(), 0.5f)));
     v[13] = q(clamp(request.merchant().avg_amount() / constants.max_merchant_avg_amount()));
@@ -113,16 +119,15 @@ public final class TransactionVector {
     return result;
   }
 
-  private static long parseEpochSecond(String ts) {
+  private static long parseEpochMinute(String ts) {
     int year = parseInt(ts, 0, 4);
     int month = parseInt(ts, 5, 7);
     int day = parseInt(ts, 8, 10);
     int hour = parseInt(ts, 11, 13);
     int minute = parseInt(ts, 14, 16);
-    int second = parseInt(ts, 17, 19);
 
     int days = daysSinceEpoch(year, month, day);
-    return (((long) days * 24 + hour) * 60 + minute) * 60 + second;
+    return ((long) days * 24 + hour) * 60 + minute;
   }
 
   private static int daysSinceEpoch(int year, int month, int day) {
@@ -139,5 +144,4 @@ public final class TransactionVector {
     days += day - 1;
     return days;
   }
-
 }

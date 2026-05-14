@@ -20,7 +20,8 @@ public class VPTree {
   private int[] vpIdx;
   private int[] leafStart;
   private int[] leafEnd;
-  private final int[] sortedIndices;
+  private int[] sortedIndices;
+  private int[] searchStack;
 
   private int rootIdx;
   private int nodeCount;
@@ -47,6 +48,8 @@ public class VPTree {
     if (count > 0) {
       buildIterative(new java.util.Random(42));
       reorder();
+      searchStack = new int[Math.max(nodeCount, 64)];
+      sortedIndices = null;
     }
   }
 
@@ -207,7 +210,7 @@ public class VPTree {
     var lo = (IntVector) diff.convertShape(VectorOperators.S2I, INT_SPECIES, 0);
     var hi = (IntVector) diff.convertShape(VectorOperators.S2I, INT_SPECIES, 1);
     return (long) lo.mul(lo).reduceLanes(VectorOperators.ADD)
-         + (long) hi.mul(hi).reduceLanes(VectorOperators.ADD);
+        + (long) hi.mul(hi).reduceLanes(VectorOperators.ADD);
   }
 
   public void search(short[] target, int k, Neighbor[] heap) {
@@ -217,12 +220,11 @@ public class VPTree {
 
     var queryVec = ShortVector.fromArray(SPECIES, target, 0);
 
-    int[] stack = new int[nodeCount];
     int sp = 0;
-    stack[sp++] = rootIdx;
+    searchStack[sp++] = rootIdx;
 
     while (sp > 0) {
-      int nodeIdx = stack[--sp];
+      int nodeIdx = searchStack[--sp];
 
       if (leftChild[nodeIdx] == -1) {
         for (int i = leafStart[nodeIdx]; i < leafEnd[nodeIdx]; i++) {
@@ -254,14 +256,14 @@ public class VPTree {
 
         if (dist < threshold) {
           if (heap[k - 1].distance > threshold - dist) {
-            stack[sp++] = rightChild[nodeIdx];
+            searchStack[sp++] = rightChild[nodeIdx];
           }
-          stack[sp++] = leftChild[nodeIdx];
+          searchStack[sp++] = leftChild[nodeIdx];
         } else {
           if (heap[k - 1].distance > dist - threshold) {
-            stack[sp++] = leftChild[nodeIdx];
+            searchStack[sp++] = leftChild[nodeIdx];
           }
-          stack[sp++] = rightChild[nodeIdx];
+          searchStack[sp++] = rightChild[nodeIdx];
         }
       }
     }
@@ -278,7 +280,12 @@ public class VPTree {
       this.label = label;
     }
 
-    public long distance() { return distance; }
-    public boolean label() { return label; }
+    public long distance() {
+      return distance;
+    }
+
+    public boolean label() {
+      return label;
+    }
   }
 }
