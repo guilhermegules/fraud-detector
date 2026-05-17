@@ -4,6 +4,12 @@ x-api: &api
     - SERVER_PORT=8080
   mem_limit: 160m
   cpus: "0.45"
+  healthcheck:
+    test: ["CMD", "curl", "-sf", "http://localhost:8080/ready"]
+    interval: 5s
+    timeout: 3s
+    retries: 3
+    start_period: 10s
   networks:
     - rinha-net
 
@@ -21,8 +27,10 @@ services:
     networks:
       - rinha-net
     depends_on:
-      - api1
-      - api2
+      api1:
+        condition: service_healthy
+      api2:
+        condition: service_healthy
 
   api1:
     <<: *api

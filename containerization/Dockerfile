@@ -14,6 +14,8 @@ RUN ./gradlew jar --no-daemon -x test
 # ---- Runtime stage ----
 FROM eclipse-temurin:25-jre
 
+RUN apt-get update -qq && apt-get install -y -qq curl && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY --from=build /app/build/libs/*.jar app.jar
@@ -29,5 +31,8 @@ ENV JAVA_OPTS="\
 "
 
 EXPOSE 8080
+
+HEALTHCHECK --start-period=5s --interval=5s --timeout=3s --retries=3 \
+  CMD curl -sf http://localhost:8080/ready || exit 1
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
