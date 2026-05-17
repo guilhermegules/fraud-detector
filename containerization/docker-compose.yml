@@ -6,10 +6,10 @@ x-api: &api
   cpus: "0.45"
   healthcheck:
     test: ["CMD", "curl", "-sf", "http://localhost:8080/ready"]
-    interval: 5s
-    timeout: 3s
-    retries: 3
-    start_period: 10s
+    interval: 10s
+    timeout: 5s
+    retries: 10
+    start_period: 40s
   networks:
     - rinha-net
 
