@@ -22,8 +22,8 @@ COPY --from=build /app/build/libs/*.jar app.jar
 
 ENV JAVA_OPTS="\
 -Xms64m \
--Xmx128m \
--XX:+UseZGC \
+-Xmx112m \
+-XX:+UseG1GC \
 -XX:MaxRAMPercentage=75 \
 -XX:ReservedCodeCacheSize=16m \
 --add-modules=jdk.incubator.vector \
