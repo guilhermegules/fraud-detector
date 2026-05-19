@@ -102,7 +102,7 @@ def main():
     rng = random.Random(42)
 
     if k > 0:
-        fraud_ratio = len(fraud) / len(data)
+        fraud_ratio = 0.50
         fraud_k = max(1, round(k * fraud_ratio))
         legit_k = k - fraud_k
         print(f"[precompute] Sampling: {fraud_k} fraud + {legit_k} legit = {k} total")

@@ -21,12 +21,10 @@ WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
 
 ENV JAVA_OPTS="\
--Xms32m \
--Xmx96m \
--XX:+UseG1GC \
--XX:MaxGCPauseMillis=20 \
+-Xms64m \
+-Xmx128m \
+-XX:+UseZGC \
 -XX:MaxRAMPercentage=75 \
--XX:+UseStringDeduplication \
 -XX:ReservedCodeCacheSize=16m \
 --add-modules=jdk.incubator.vector \
 "
