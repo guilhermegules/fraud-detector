@@ -21,10 +21,8 @@ services:
     networks:
       - rinha-net
     depends_on:
-      api1:
-        condition: service_started
-      api2:
-        condition: service_started
+      - api1
+      - api2
 
   api1:
     <<: *api
