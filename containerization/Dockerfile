@@ -29,7 +29,4 @@ ENV JAVA_OPTS="\
 
 EXPOSE 8080
 
-HEALTHCHECK --start-period=40s --interval=10s --timeout=5s --retries=10 \
-  CMD curl -fs http://localhost:8080/ready || exit 1
-
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
