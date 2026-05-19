@@ -54,6 +54,10 @@ public final class Server {
         exchange.sendResponseHeaders(405, -1);
         return;
       }
+      if (!fraudDetectionService.isReady()) {
+        exchange.sendResponseHeaders(503, -1);
+        return;
+      }
       byte[] body = exchange.getRequestBody().readAllBytes();
       FraudRequest request;
       try {

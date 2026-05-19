@@ -11,11 +11,13 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class KnnFraudDetectionService {
 
   private VPTree tree;
   private final ReferenceLoader referenceLoader;
+  private final AtomicBoolean ready = new AtomicBoolean(false);
 
   private static final ThreadLocal<short[]> VECTOR_BUFFER = ThreadLocal.withInitial(() -> new short[16]);
   private static final ThreadLocal<VPTree.Neighbor[]> HEAP_BUFFER =
@@ -33,9 +35,15 @@ public final class KnnFraudDetectionService {
     var ref = referenceLoader.loadFraudReference();
     tree = new VPTree(ref.vectors(), ref.labels(), 16);
     warmup();
+    ready.set(true);
+  }
+
+  public boolean isReady() {
+    return ready.get();
   }
 
   public FraudScore evaluate(FraudRequest request) {
+    if (!ready.get()) return FraudScore.SAFE;
     short[] vector = VECTOR_BUFFER.get();
     TransactionVector.toArray(request,
         referenceLoader.getNormalizationConstants(),
